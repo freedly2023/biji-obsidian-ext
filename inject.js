@@ -22,6 +22,7 @@
   }
 
   // --- Normalize a raw note object ---
+  // MIRROR of background.js — keep in sync
   function normalizeNote(raw) {
     return {
       id: raw.id || raw.noteId || raw.note_id || raw._id || '',
@@ -45,6 +46,7 @@
   }
 
   // --- Improved recursive notes array finder ---
+  // MIRROR of background.js — keep in sync
   function findNotesArray(obj, depth) {
     depth = depth || 0;
     if (depth > 10 || !obj) return null;
@@ -57,7 +59,7 @@
         return obj;
       }
       // Relaxed match: large array where items have IDs
-      if (obj.length >= 20 && (f.id || f.noteId || f.note_id || f._id)) {
+      if (obj.length >= 5 && (f.id || f.noteId || f.note_id || f._id)) {
         log('Relaxed match: array of', obj.length, 'items with IDs at depth', depth);
         log('  First item keys:', Object.keys(f));
         return obj;

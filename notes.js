@@ -190,10 +190,6 @@
     updateSelectionUI();
   }
 
-  function getActiveFormats() {
-    return Object.keys(activeFileFormats).filter(function (f) { return activeFileFormats[f]; });
-  }
-
   function updateSelectionUI() {
     var count = Object.keys(selectedIds).length;
     selCountEl.textContent = count;
@@ -210,7 +206,7 @@
     }
 
     // Export button text
-    var formats = getActiveFormats();
+    var formats = ExportEngine.getActiveFormats(activeFileFormats);
     var fmtLabel = formats.length > 0 ? formats.map(function (f) { return f.toUpperCase(); }).join('+') : 'MD';
     if (count > 0) {
       btnExport.textContent = '\u5BFC\u51FA\u9009\u4E2D ' + count + ' \u6761 (' + fmtLabel + ')';
@@ -275,7 +271,7 @@
       activeFileFormats[fmt] = this.checked;
 
       // Ensure at least one format is selected
-      var formats = getActiveFormats();
+      var formats = ExportEngine.getActiveFormats(activeFileFormats);
       if (formats.length === 0) {
         activeFileFormats.md = true;
         var mdCb = document.querySelector('.fmt-check-sm input[data-format="md"]');
@@ -332,34 +328,6 @@
     return filteredNotes.filter(function (n) { return selectedIds[n.id]; });
   }
 
-  // Transcript fetcher (same logic as popup.js)
-  function fetchMissingTranscripts(notes, onProgress) {
-    var missing = notes.filter(function (n) { return !n.rawTranscript; });
-    if (missing.length === 0) return Promise.resolve();
-    var done = 0;
-    var total = missing.length;
-    function fetchNext(index) {
-      if (index >= missing.length) return Promise.resolve();
-      var note = missing[index];
-      done++;
-      if (onProgress) onProgress(done, total);
-      return new Promise(function (resolve) {
-        chrome.runtime.sendMessage({
-          type: 'fetchTranscript', noteId: note.id,
-          noteType: note.noteType || note.type || ''
-        }, function (res) {
-          if (chrome.runtime.lastError) { resolve(); return; }
-          if (res && res.transcript) {
-            note.rawTranscript = res.transcript;
-            chrome.runtime.sendMessage({ type: 'storeVueNotes', notes: [{ id: note.id, rawTranscript: res.transcript }] });
-          }
-          resolve();
-        });
-      }).then(function () { return fetchNext(index + 1); });
-    }
-    return fetchNext(0);
-  }
-
   function doZipExport() {
     window.loadSettings(function (settings) {
       var notes = getNotesToExport();
@@ -368,154 +336,41 @@
         return;
       }
 
-      var formats = getActiveFormats();
+      var formats = ExportEngine.getActiveFormats(activeFileFormats);
       if (formats.length === 0) formats = ['md'];
 
       progressEl.classList.add('active');
       btnExport.disabled = true;
 
-      // Fetch transcripts if needed
       var needTranscripts = settings.transcriptMode !== 'none' &&
         notes.some(function (n) { return !n.rawTranscript; });
       var chain = Promise.resolve();
       if (needTranscripts) {
         ptxtEl.textContent = '\u6B63\u5728\u83B7\u53D6\u6587\u5B57\u8BB0\u5F55...';
-        chain = fetchMissingTranscripts(notes, function (done, total) {
+        chain = ExportEngine.fetchMissingTranscripts(notes, function (done, total) {
           ptxtEl.textContent = '\u83B7\u53D6\u6587\u5B57\u8BB0\u5F55 ' + done + '/' + total + '...';
         });
       }
 
       chain.then(function () {
-      var zip = new JSZip();
-      var folder = zip.folder('biji-export');
-      var used = {};
-      var total = notes.length;
-
-      var hasNonMd = formats.indexOf('pdf') !== -1 || formats.indexOf('docx') !== -1;
-      if (hasNonMd && total > 20) {
-        ptxtEl.textContent = 'PDF/DOCX \u751F\u6210\u8F83\u6162\uFF0C\u8BF7\u8010\u5FC3\u7B49\u5F85...';
-      }
-
-      function processNote(index) {
-        if (index >= total) return finishZip(zip, notes);
-        var note = notes[index];
-
-        function processFormat(fmtIndex) {
-          if (fmtIndex >= formats.length) {
-            // All formats done — process transcripts
-            return processTranscript(note, formats, folder, used, settings).then(function () {
-              var pct = Math.round(((index + 1) / total) * 100);
-              pfillEl.style.width = pct + '%';
-              ptxtEl.textContent = (index + 1) + ' / ' + total + ' \u7B14\u8BB0\u5DF2\u5904\u7406';
-              return processNote(index + 1);
-            });
-          }
-
-          var format = formats[fmtIndex];
-          var ext = window.getFileExt(format);
-          var fn = window.fullPathWithFormat(note, settings, format);
-          fn = window.deduplicateFilename(fn, used, ext);
-          used[fn] = true;
-
-          var genPromise;
-          if (format === 'md') {
-            var mdContent;
-            if (settings.transcriptMode === 'merged' && note.rawTranscript) {
-              mdContent = MD.convert(note, settings);
-              var rawContent = note.rawTranscript;
-              if (rawContent.includes('<') && rawContent.includes('>')) {
-                rawContent = MD.htmlToMd(rawContent);
-              }
-              mdContent += '\n\n---\n\n## \u539F\u59CB\u6587\u5B57\u8BB0\u5F55\n\n' + rawContent;
-            } else {
-              mdContent = MD.convert(note, settings);
-            }
-            genPromise = Promise.resolve(mdContent);
-          } else if (format === 'pdf') {
-            genPromise = ServerExporter.exportNote(note.id, 'pdf');
-          } else {
-            genPromise = ServerExporter.exportNote(note.id, 'docx');
-          }
-
-          return genPromise.then(function (data) {
-            folder.file(fn, data);
-          }).catch(function (err) {
-            console.warn('[Biji Ext] Export error (' + format + ') for', note.id, err);
-            var mdFn = fn.replace(ext, '.md');
-            if (!used[mdFn]) {
-              folder.file(mdFn, MD.convert(note, settings));
-              used[mdFn] = true;
-            }
-          }).then(function () {
-            return processFormat(fmtIndex + 1);
-          });
+        var hasNonMd = formats.indexOf('pdf') !== -1 || formats.indexOf('docx') !== -1;
+        if (hasNonMd && notes.length > 20) {
+          ptxtEl.textContent = 'PDF/DOCX \u751F\u6210\u8F83\u6162\uFF0C\u8BF7\u8010\u5FC3\u7B49\u5F85...';
         }
 
-        return processFormat(0);
-      }
-
-      function processTranscript(note, formats, folder, used, settings) {
-        if (settings.transcriptMode === 'none') return Promise.resolve();
-        if (!note.rawTranscript && !note.content) return Promise.resolve();
-
-        var chain = Promise.resolve();
-
-        formats.forEach(function (format) {
-          chain = chain.then(function () {
-            if (format === 'md') {
-              if (settings.transcriptMode === 'separate') {
-                var tFn = window.fullPathWithFormat(note, settings, 'md').replace('.md', '-transcript.md');
-                tFn = window.deduplicateFilename(tFn, used, '.md');
-                used[tFn] = true;
-                folder.file(tFn, MD.convertTranscript(note, settings));
-              }
-            } else if (format === 'pdf') {
-              // For PDF/DOCX: separate mode → standalone transcript file
-              // merged mode → server API already includes transcript in main file
-              if (settings.transcriptMode !== 'separate') return;
-              var tFn = window.fullPathWithFormat(note, settings, 'pdf').replace('.pdf', '-transcript.pdf');
-              tFn = window.deduplicateFilename(tFn, used, '.pdf');
-              used[tFn] = true;
-              return PDFConverter.generateTranscriptPdf(note, settings).then(function (blob) {
-                folder.file(tFn, blob);
-              }).catch(function () {
-                var fallback = tFn.replace('.pdf', '.md');
-                folder.file(fallback, MD.convertTranscript(note, settings));
-              });
-            } else if (format === 'docx') {
-              if (settings.transcriptMode !== 'separate') return;
-              var tFn = window.fullPathWithFormat(note, settings, 'docx').replace('.docx', '-transcript.docx');
-              tFn = window.deduplicateFilename(tFn, used, '.docx');
-              used[tFn] = true;
-              return DOCXConverter.generateTranscriptDocx(note, settings).then(function (blob) {
-                folder.file(tFn, blob);
-              }).catch(function () {
-                var fallback = tFn.replace('.docx', '.md');
-                folder.file(fallback, MD.convertTranscript(note, settings));
-              });
-            }
-          });
+        return ExportEngine.zipExport(notes, settings, formats, function (done, total) {
+          var pct = Math.round((done / total) * 100);
+          pfillEl.style.width = pct + '%';
+          ptxtEl.textContent = done + ' / ' + total + ' \u7B14\u8BB0\u5DF2\u5904\u7406';
         });
-
-        return chain;
-      }
-
-      return processNote(0);
-      }); // chain.then
-    });
-  }
-
-  function finishZip(zip, notes) {
-    return zip.generateAsync({ type: 'blob', compression: 'DEFLATE' }).then(function (content) {
-      var ts = new Date().toISOString().substring(0, 10);
-      saveAs(content, 'biji-export-' + ts + '.zip');
-      ExportTracker.markExported(notes.map(function (n) { return n.id; }));
-      ptxtEl.textContent = '\u5BFC\u51FA\u5B8C\u6210\uFF01\u8BF7\u67E5\u770B\u4E0B\u8F7D\u6587\u4EF6\u5939\u3002';
-      btnExport.disabled = false;
-      setTimeout(function () {
-        progressEl.classList.remove('active');
-        applyFilters(); // re-render to update export status
-      }, 3000);
+      }).then(function () {
+        ptxtEl.textContent = '\u5BFC\u51FA\u5B8C\u6210\uFF01\u8BF7\u67E5\u770B\u4E0B\u8F7D\u6587\u4EF6\u5939\u3002';
+        btnExport.disabled = false;
+        setTimeout(function () {
+          progressEl.classList.remove('active');
+          applyFilters();
+        }, 3000);
+      });
     });
   }
 
@@ -532,64 +387,25 @@
         return;
       }
 
-      var subfolder = settings.vaultSubfolder || 'biji-notes';
       progressEl.classList.add('active');
       btnExport.disabled = true;
 
-      // Fetch transcripts if needed
       var needTranscripts = settings.transcriptMode !== 'none' &&
         notes.some(function (n) { return !n.rawTranscript; });
       var chain = Promise.resolve();
       if (needTranscripts) {
         ptxtEl.textContent = '\u6B63\u5728\u83B7\u53D6\u6587\u5B57\u8BB0\u5F55...';
-        chain = fetchMissingTranscripts(notes, function (done, total) {
+        chain = ExportEngine.fetchMissingTranscripts(notes, function (done, total) {
           ptxtEl.textContent = '\u83B7\u53D6\u6587\u5B57\u8BB0\u5F55 ' + done + '/' + total + '...';
         });
       }
 
       chain.then(function () {
-      var converter = {
-        filename: function (note) { return window.fullPath(note, settings); },
-        convert: function (note) {
-          if (settings.transcriptMode === 'merged' && note.rawTranscript) {
-            var mainContent = MD.convert(note, settings);
-            var rawContent = note.rawTranscript;
-            if (rawContent.includes('<') && rawContent.includes('>')) {
-              rawContent = MD.htmlToMd(rawContent);
-            }
-            return mainContent + '\n\n---\n\n## \u539F\u59CB\u6587\u5B57\u8BB0\u5F55\n\n' + rawContent;
-          }
-          return MD.convert(note, settings);
-        }
-      };
-
-      VaultWriter.writeAllNotes(notes, subfolder, converter, function (done, total, written, errorCount) {
-        var pct = Math.round((done / total) * 100);
-        pfillEl.style.width = pct + '%';
-        ptxtEl.textContent = done + ' / ' + total + ' \u5DF2\u5904\u7406 (' + written + ' \u5199\u5165, ' + errorCount + ' \u9519\u8BEF)';
-      }).then(function (result) {
-        if (settings.transcriptMode === 'separate') {
-          var notesWithContent = notes.filter(function (n) { return !!n.content; });
-          if (notesWithContent.length > 0) {
-            var txConverter = {
-              filename: function (note) {
-                return window.fullPath(note, settings).replace('.md', '-transcript.md');
-              },
-              convert: function (note) {
-                return MD.convertTranscript(note, settings);
-              }
-            };
-            return VaultWriter.writeAllNotes(notesWithContent, subfolder, txConverter, function (done, total) {
-              ptxtEl.textContent = '\u5199\u5165 transcript ' + done + '/' + total + '...';
-            }).then(function (txResult) {
-              return {
-                written: result.written + txResult.written,
-                errors: result.errors.concat(txResult.errors)
-              };
-            });
-          }
-        }
-        return result;
+        return ExportEngine.vaultExport(notes, settings, function (done, total, written, errorCount) {
+          var pct = Math.round((done / total) * 100);
+          pfillEl.style.width = pct + '%';
+          ptxtEl.textContent = done + ' / ' + total + ' \u5DF2\u5904\u7406 (' + written + ' \u5199\u5165, ' + errorCount + ' \u9519\u8BEF)';
+        });
       }).then(function (result) {
         ExportTracker.markExported(notes.map(function (n) { return n.id; }));
         ptxtEl.textContent = '\u5BFC\u51FA\u5B8C\u6210\uFF01' + result.written + ' \u7BC7\u7B14\u8BB0\u5DF2\u5199\u5165 Vault\u3002';
@@ -606,7 +422,6 @@
         btnExport.disabled = false;
         setTimeout(function () { progressEl.classList.remove('active'); }, 4000);
       });
-      }); // chain.then
     });
   }
 

@@ -23,6 +23,7 @@ chrome.storage.local.get('apiHeaders', function (data) {
   }
 });
 
+// CANONICAL — mirror in inject.js
 function findNotesArray(obj, depth) {
   depth = depth || 0;
   if (depth > 10 || !obj) return null;
@@ -58,6 +59,7 @@ function findNotesArray(obj, depth) {
   return null;
 }
 
+// CANONICAL — mirror in inject.js
 function normalizeNote(raw) {
   return {
     id: raw.id || raw.noteId || raw.note_id || raw._id || '',
