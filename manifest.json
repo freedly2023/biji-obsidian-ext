@@ -1,0 +1,35 @@
+{
+  "manifest_version": 3,
+  "name": "Biji to Obsidian",
+  "version": "1.2.0",
+  "description": "Export notes from biji.com (Get笔记) to Markdown for Obsidian",
+  "permissions": ["storage", "cookies"],
+  "host_permissions": ["https://biji.com/*", "https://*.biji.com/*", "https://get-notes.luojilab.com/*", "https://*.luojilab.com/*", "https://*.umiwi.com/*"],
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "48": "icon48.png"
+    }
+  },
+  "options_page": "options.html",
+  "icons": {
+    "48": "icon48.png",
+    "128": "icon128.png"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://biji.com/*", "https://*.biji.com/*"],
+      "js": ["content.js"],
+      "run_at": "document_start"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["inject.js"],
+      "matches": ["https://biji.com/*", "https://*.biji.com/*"]
+    }
+  ]
+}

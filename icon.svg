@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+  <rect width="128" height="128" rx="20" fill="#6C5CE7"/>
+  <text x="64" y="52" text-anchor="middle" font-size="36" font-family="Arial,sans-serif" font-weight="bold" fill="white">B</text>
+  <text x="64" y="82" text-anchor="middle" font-size="18" font-family="Arial,sans-serif" fill="rgba(255,255,255,0.8)">→ Ob</text>
+</svg>
