@@ -1,5 +1,11 @@
 // background.js — Service worker: stores captured notes, handles messages
 
+var DEBUG = false;
+function log() {
+  if (!DEBUG) return;
+  console.log.apply(console, ['[Biji Ext]'].concat(Array.prototype.slice.call(arguments)));
+}
+
 // ============================================================
 // Active Fetcher — fetch all notes via API (runs in Service Worker, no CORS)
 // ============================================================
@@ -13,7 +19,7 @@ var capturedApiHeaders = null; // Auth headers captured from page's real API req
 chrome.storage.local.get('apiHeaders', function (data) {
   if (data.apiHeaders) {
     capturedApiHeaders = data.apiHeaders;
-    console.log('[Biji Ext] Restored API headers from storage:', Object.keys(capturedApiHeaders).join(', '));
+    log('Restored API headers from storage:', Object.keys(capturedApiHeaders).join(', '));
   }
 });
 
@@ -106,7 +112,7 @@ function fetchAllNotes(fetchDelay) {
 
     if (!capturedApiHeaders) {
       postStatus('未捕获到认证信息，请先在 biji.com 页面上浏览笔记列表，然后再点击获取', 0, true);
-      console.log('[Biji Ext] No captured API headers. User needs to browse biji.com first.');
+      log('No captured API headers. User needs to browse biji.com first.');
       return Promise.resolve();
     }
 
@@ -116,17 +122,17 @@ function fetchAllNotes(fetchDelay) {
 
     // Use captured auth headers from the page's real API requests
     var headers = Object.assign({}, capturedApiHeaders);
-    console.log('[Biji Ext] Fetching with headers:', Object.keys(headers).join(', '));
+    log('Fetching with headers:', Object.keys(headers).join(', '));
 
     return fetch(url, {
       method: 'GET',
       headers: headers,
       signal: signal
     }).then(function (response) {
-      console.log('[Biji Ext] Fetch page ' + pageNum + ': HTTP ' + response.status);
+      log('Fetch page ' + pageNum + ': HTTP ' + response.status);
       if (!response.ok) {
         return response.text().then(function (body) {
-          console.log('[Biji Ext] Error response body:', body.substring(0, 500));
+          log('Error response body:', body.substring(0, 500));
           if (response.status === 429) {
             postStatus('请求限流，等待 5 秒...', totalFetched, false);
             return delay(5000).then(fetchPage);
@@ -151,8 +157,8 @@ function fetchAllNotes(fetchDelay) {
           var rawNotes = findNotesArray(data);
           if (rawNotes && rawNotes.length > 0) {
             var first = rawNotes[0];
-            console.log('[Biji Ext] Raw note keys:', Object.keys(first));
-            console.log('[Biji Ext] Raw note sample:', JSON.stringify(first).substring(0, 2000));
+            log('Raw note keys:', Object.keys(first));
+            log('Raw note sample:', JSON.stringify(first).substring(0, 2000));
           }
         }
 
@@ -227,22 +233,22 @@ function fetchNoteTranscript(noteId, noteType) {
   function tryUrl(index) {
     if (index >= urls.length) return Promise.resolve(null);
     var url = urls[index];
-    console.log('[Biji Ext] Fetching transcript from:', url);
+    log('Fetching transcript from:', url);
 
     return fetch(url, { method: 'GET', headers: headers })
       .then(function (resp) {
         if (!resp.ok) {
-          console.log('[Biji Ext] Detail API returned HTTP', resp.status, 'for', url);
+          log('Detail API returned HTTP', resp.status, 'for', url);
           return tryUrl(index + 1);
         }
         return resp.json().then(function (data) {
-          console.log('[Biji Ext] Detail API response keys:', JSON.stringify(Object.keys(data)));
+          log('Detail API response keys:', JSON.stringify(Object.keys(data)));
           var transcript = extractTranscript(data);
           if (transcript) {
-            console.log('[Biji Ext] Transcript found, length:', transcript.length);
+            log('Transcript found, length:', transcript.length);
             return transcript;
           }
-          console.log('[Biji Ext] No transcript found in response from', url);
+          log('No transcript found in response from', url);
           return tryUrl(index + 1);
         });
       })
@@ -387,10 +393,10 @@ function createExportTask(noteId, type) {
       taskId = data.c;
     }
     if (!taskId) {
-      console.log('[Biji Ext] Export create response:', JSON.stringify(data).substring(0, 500));
+      log('Export create response:', JSON.stringify(data).substring(0, 500));
       throw new Error('Could not find task ID in export response');
     }
-    console.log('[Biji Ext] Export task created:', taskId);
+    log('Export task created:', taskId);
     return taskId;
   });
 }
@@ -420,10 +426,10 @@ function pollExportTask(taskId) {
         var accessUrl = c.access_url || c.download_url || c.url || '';
         var filename = c.filename || c.file_name || '';
         if (!accessUrl) {
-          console.log('[Biji Ext] Export poll response:', JSON.stringify(data).substring(0, 500));
+          log('Export poll response:', JSON.stringify(data).substring(0, 500));
           throw new Error('Export finished but no download URL');
         }
-        console.log('[Biji Ext] Export ready:', accessUrl);
+        log('Export ready:', accessUrl);
         return { access_url: accessUrl, filename: filename };
       }
       // Not finished yet — wait 1s and retry
@@ -483,7 +489,7 @@ chrome.runtime.onMessage.addListener(function (msg, sender, sendResponse) {
     capturedApiHeaders = msg.payload.headers;
     // Persist to storage so it survives SW restart
     chrome.storage.local.set({ apiHeaders: capturedApiHeaders });
-    console.log('[Biji Ext] Captured API auth headers:', Object.keys(capturedApiHeaders).join(', '));
+    log('Captured API auth headers:', Object.keys(capturedApiHeaders).join(', '));
   } else if (msg.type === 'fetchTranscript') {
     // Fetch transcript for a single note via detail API
     fetchNoteTranscript(msg.noteId, msg.noteType).then(function (transcript) {
@@ -521,7 +527,8 @@ function storeNotes(newNotes) {
       var count = Object.keys(notes).length;
       updateBadge(count);
       // Broadcast updated count to popup (after storage write is confirmed)
-      chrome.runtime.sendMessage({ type: 'notesUpdated', count: count }).catch(function () {});
+      chrome.runtime.sendMessage({ type: 'notesUpdated', count: count }).catch(function () { // Popup may be closed; ignore
+      });
     });
   });
 }

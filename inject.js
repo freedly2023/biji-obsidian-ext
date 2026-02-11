@@ -260,7 +260,7 @@
   // --- Fetch raw transcript from /note/{id}/web page ---
   function fetchRawTranscript(noteId) {
     var url = 'https://www.biji.com/note/' + noteId + '/web';
-    console.log('[Biji Ext] Fetching transcript from:', url);
+    log('Fetching transcript from:', url);
     return origFetch(url, { credentials: 'include' }).then(function (resp) {
       if (!resp.ok) {
         console.warn('[Biji Ext] /web page returned HTTP', resp.status);
@@ -269,7 +269,7 @@
       return resp.text();
     }).then(function (html) {
       if (!html) return null;
-      console.log('[Biji Ext] /web page HTML length:', html.length);
+      log('/web page HTML length:', html.length);
 
       // Try 1: extract from SSR state embedded in script tags
       var statePatterns = [
@@ -302,7 +302,7 @@
             }
             var text = findText(state, 0);
             if (text) {
-              console.log('[Biji Ext] Found transcript in SSR state, length:', text.length);
+              log('Found transcript in SSR state, length:', text.length);
               return text;
             }
           } catch (e) {
@@ -347,16 +347,16 @@
               });
               if (hasTimestamp && texts.length > 3) {
                 var result = texts.join('\n\n');
-                console.log('[Biji Ext] Found transcript via selector "' + selectors[i] +
-                            '", paragraphs:', texts.length, 'length:', result.length);
+                log('Found transcript via selector "' + selectors[i] +
+                    '", paragraphs:', texts.length, 'length:', result.length);
                 return result;
               }
             }
             // Fallback: use full text content if substantial
             var fullText = el.textContent.trim();
             if (fullText.length > 100) {
-              console.log('[Biji Ext] Found content via selector "' + selectors[i] +
-                          '", length:', fullText.length);
+              log('Found content via selector "' + selectors[i] +
+                  '", length:', fullText.length);
               return fullText;
             }
           }
@@ -373,13 +373,13 @@
         });
         if (timestampTexts.length > 3) {
           var result = timestampTexts.join('\n\n');
-          console.log('[Biji Ext] Found transcript via timestamp <p> scan, count:',
-                      timestampTexts.length, 'length:', result.length);
+          log('Found transcript via timestamp <p> scan, count:',
+              timestampTexts.length, 'length:', result.length);
           return result;
         }
 
-        console.log('[Biji Ext] No transcript found in /web page DOM. Body length:',
-                    doc.body ? doc.body.textContent.length : 0);
+        log('No transcript found in /web page DOM. Body length:',
+            doc.body ? doc.body.textContent.length : 0);
       } catch (e) {
         console.warn('[Biji Ext] Failed to parse /web page HTML:', e);
       }
@@ -445,7 +445,7 @@
         else if (v !== null && v !== undefined) preview = String(v).substring(0, 120);
         fieldInfo[k] = t + (preview ? ' | ' + preview : '');
       });
-      console.log('[Biji Ext] Raw note fields:', JSON.stringify(fieldInfo, null, 2));
+      log('Raw note fields:', JSON.stringify(fieldInfo, null, 2));
       postToExtension('discovery', {
         url: url + ' [field-discovery]',
         preview: 'Fields: ' + Object.keys(first).join(', ')
@@ -532,9 +532,9 @@
       if (response.ok) {
         response.clone().text().then(function (text) {
           processResponse(url, text);
-        }).catch(function () {});
+        }).catch(function () {}); // Ignore clone read failure (non-text response)
       }
-    }).catch(function () {});
+    }).catch(function () {}); // Ignore network errors in interceptor (non-critical)
     return promise;
   };
 

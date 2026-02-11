@@ -10,6 +10,7 @@
   'use strict';
 
   var PREFIX = '[Biji Ext]';
+  var DEBUG = false;
 
   // 1. Inject the page-level interceptor + Vue scanner script
   var s = document.createElement('script');
@@ -42,7 +43,7 @@
       var timeout = setTimeout(function () {
         if (!handled) {
           handled = true;
-          console.log(PREFIX, 'Vue scan timeout — inject.js may not be loaded');
+          if (DEBUG) console.log(PREFIX, 'Vue scan timeout — inject.js may not be loaded');
           sendResponse({ notes: [] });
         }
       }, 10000);
@@ -74,7 +75,7 @@
       var txTimeout = setTimeout(function () {
         if (!txHandled) {
           txHandled = true;
-          console.log(PREFIX, 'Transcript fetch timeout for note:', noteId);
+          if (DEBUG) console.log(PREFIX, 'Transcript fetch timeout for note:', noteId);
           sendResponse({ noteId: noteId, transcript: null });
         }
       }, 15000);
