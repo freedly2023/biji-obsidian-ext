@@ -1263,4 +1263,21 @@
     },
   };
   window.ExportEngine = ExportEngine;
+
+  // --- CommonJS exports for testing ---
+  if (typeof module !== 'undefined' && module.exports) {
+    module.exports = {
+      MD: MD,
+      sanitize: window.sanitize,
+      filename: window.filename,
+      getDateParts: window.getDateParts,
+      getFolderPrefix: window.getFolderPrefix,
+      fullPath: window.fullPath,
+      escapeHtml: window.escapeHtml,
+      getFileExt: window.getFileExt,
+      fullPathWithFormat: window.fullPathWithFormat,
+      deduplicateFilename: window.deduplicateFilename,
+      sortNotesByDate: window.sortNotesByDate,
+    };
+  }
 })();
