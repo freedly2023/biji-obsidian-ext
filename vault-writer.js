@@ -1,5 +1,4 @@
 // vault-writer.js — Direct write to Obsidian vault via File System Access API
-// Ported from userscript VaultWriter (biji-to-obsidian.user.js)
 
 var VaultWriter = (function () {
   'use strict';
