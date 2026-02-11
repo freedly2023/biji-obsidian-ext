@@ -29,8 +29,10 @@ function findNotesArray(obj, depth) {
   if (depth > 10 || !obj) return null;
   if (Array.isArray(obj) && obj.length > 0 && typeof obj[0] === 'object' && obj[0] !== null) {
     var f = obj[0];
-    if ((f.id || f.noteId || f.note_id || f._id) &&
-        (f.content || f.title || f.text || f.body || f.name || f.subject || f.html || f.richText)) {
+    if (
+      (f.id || f.noteId || f.note_id || f._id) &&
+      (f.content || f.title || f.text || f.body || f.name || f.subject || f.html || f.richText)
+    ) {
       return obj;
     }
     if (obj.length >= 5 && (f.id || f.noteId || f.note_id || f._id)) {
@@ -38,9 +40,23 @@ function findNotesArray(obj, depth) {
     }
   }
   if (typeof obj === 'object' && !Array.isArray(obj)) {
-    var priorityKeys = ['list', 'notes', 'data', 'items', 'results', 'records', 'c',
-                        'noteList', 'note_list', 'entries', 'rows', 'content',
-                        'timeline', 'feeds', 'posts'];
+    var priorityKeys = [
+      'list',
+      'notes',
+      'data',
+      'items',
+      'results',
+      'records',
+      'c',
+      'noteList',
+      'note_list',
+      'entries',
+      'rows',
+      'content',
+      'timeline',
+      'feeds',
+      'posts',
+    ];
     var allKeys = Object.keys(obj);
     var sortedKeys = [];
     priorityKeys.forEach(function (pk) {
@@ -65,15 +81,40 @@ function normalizeNote(raw) {
     id: raw.id || raw.noteId || raw.note_id || raw._id || '',
     title: raw.title || raw.name || raw.subject || '',
     content: raw.content || raw.text || raw.body || raw.html || raw.richText || '',
-    rawTranscript: raw.transcript || raw.rawText || raw.raw_text ||
-                   raw.voiceText || raw.voice_text || raw.asr || raw.asrText ||
-                   raw.asr_text || raw.originalText || raw.original_text ||
-                   raw.speechText || raw.speech_text || raw.rawContent || raw.raw_content ||
-                   null,
-    createdAt: raw.createdAt || raw.created_at || raw.createTime || raw.create_time ||
-               raw.createdTime || raw.created || raw.ctime || '',
-    updatedAt: raw.updatedAt || raw.updated_at || raw.updateTime || raw.update_time ||
-               raw.modifiedAt || raw.modified || raw.mtime || '',
+    rawTranscript:
+      raw.transcript ||
+      raw.rawText ||
+      raw.raw_text ||
+      raw.voiceText ||
+      raw.voice_text ||
+      raw.asr ||
+      raw.asrText ||
+      raw.asr_text ||
+      raw.originalText ||
+      raw.original_text ||
+      raw.speechText ||
+      raw.speech_text ||
+      raw.rawContent ||
+      raw.raw_content ||
+      null,
+    createdAt:
+      raw.createdAt ||
+      raw.created_at ||
+      raw.createTime ||
+      raw.create_time ||
+      raw.createdTime ||
+      raw.created ||
+      raw.ctime ||
+      '',
+    updatedAt:
+      raw.updatedAt ||
+      raw.updated_at ||
+      raw.updateTime ||
+      raw.update_time ||
+      raw.modifiedAt ||
+      raw.modified ||
+      raw.mtime ||
+      '',
     tags: raw.tags || raw.labels || raw.categories || [],
     noteType: raw.note_type || raw.noteType || raw.entry_type || null,
     type: raw.type || raw.note_type || raw.noteType || 'text',
@@ -94,16 +135,18 @@ function fetchAllNotes(fetchDelay) {
   var retries = 0;
 
   function postStatus(status, fetched, done) {
-    chrome.runtime.sendMessage({
-      type: 'fetchStatus',
-      payload: {
-        status: status,
-        fetched: fetched || totalFetched,
-        done: !!done
-      }
-    }).catch(function () {
-      // Popup may be closed; ignore
-    });
+    chrome.runtime
+      .sendMessage({
+        type: 'fetchStatus',
+        payload: {
+          status: status,
+          fetched: fetched || totalFetched,
+          done: !!done,
+        },
+      })
+      .catch(function () {
+        // Popup may be closed; ignore
+      });
   }
 
   function fetchPage() {
@@ -129,78 +172,86 @@ function fetchAllNotes(fetchDelay) {
     return fetch(url, {
       method: 'GET',
       headers: headers,
-      signal: signal
-    }).then(function (response) {
-      log('Fetch page ' + pageNum + ': HTTP ' + response.status);
-      if (!response.ok) {
-        return response.text().then(function (body) {
-          log('Error response body:', body.substring(0, 500));
-          if (response.status === 429) {
-            postStatus('请求限流，等待 5 秒...', totalFetched, false);
-            return delay(5000).then(fetchPage);
+      signal: signal,
+    })
+      .then(function (response) {
+        log('Fetch page ' + pageNum + ': HTTP ' + response.status);
+        if (!response.ok) {
+          return response.text().then(function (body) {
+            log('Error response body:', body.substring(0, 500));
+            if (response.status === 429) {
+              postStatus('请求限流，等待 5 秒...', totalFetched, false);
+              return delay(5000).then(fetchPage);
+            }
+            if (response.status === 401 || response.status === 403) {
+              postStatus(
+                '认证失败 (HTTP ' + response.status + ')，请先登录 biji.com',
+                totalFetched,
+                true
+              );
+              return Promise.resolve();
+            }
+            if (retries < maxRetries) {
+              retries++;
+              postStatus('请求失败 (HTTP ' + response.status + ')，重试中...', totalFetched, false);
+              return delay(Math.pow(2, retries) * 500).then(fetchPage);
+            }
+            postStatus('请求失败 (HTTP ' + response.status + ')', totalFetched, true);
+            return Promise.resolve();
+          });
+        }
+        retries = 0;
+        return response.json().then(function (data) {
+          // Field discovery: log raw note structure on first page
+          if (pageNum === 1) {
+            var rawNotes = findNotesArray(data);
+            if (rawNotes && rawNotes.length > 0) {
+              var first = rawNotes[0];
+              log('Raw note keys:', Object.keys(first));
+              log('Raw note sample:', JSON.stringify(first).substring(0, 2000));
+            }
           }
-          if (response.status === 401 || response.status === 403) {
-            postStatus('认证失败 (HTTP ' + response.status + ')，请先登录 biji.com', totalFetched, true);
+
+          var notes = findNotesArray(data);
+          if (!notes || notes.length === 0) {
+            postStatus('获取完成！共 ' + totalFetched + ' 条笔记', totalFetched, true);
             return Promise.resolve();
           }
-          if (retries < maxRetries) {
-            retries++;
-            postStatus('请求失败 (HTTP ' + response.status + ')，重试中...', totalFetched, false);
-            return delay(Math.pow(2, retries) * 500).then(fetchPage);
+
+          var normalized = notes.map(normalizeNote);
+          totalFetched += normalized.length;
+          storeNotes(normalized);
+          postStatus('已获取 ' + totalFetched + ' 条笔记', totalFetched, false);
+
+          var lastNote = notes[notes.length - 1];
+          var lastId = lastNote.id || lastNote.noteId || lastNote.note_id || lastNote._id || '';
+          if (!lastId || notes.length < limit) {
+            postStatus('获取完成！共 ' + totalFetched + ' 条笔记', totalFetched, true);
+            return Promise.resolve();
           }
-          postStatus('请求失败 (HTTP ' + response.status + ')', totalFetched, true);
-          return Promise.resolve();
+          sinceId = String(lastId);
+          return delay(fetchDelay).then(fetchPage);
         });
-      }
-      retries = 0;
-      return response.json().then(function (data) {
-        // Field discovery: log raw note structure on first page
-        if (pageNum === 1) {
-          var rawNotes = findNotesArray(data);
-          if (rawNotes && rawNotes.length > 0) {
-            var first = rawNotes[0];
-            log('Raw note keys:', Object.keys(first));
-            log('Raw note sample:', JSON.stringify(first).substring(0, 2000));
-          }
-        }
-
-        var notes = findNotesArray(data);
-        if (!notes || notes.length === 0) {
-          postStatus('获取完成！共 ' + totalFetched + ' 条笔记', totalFetched, true);
+      })
+      .catch(function (e) {
+        if (e.name === 'AbortError') {
+          postStatus('已取消', totalFetched, true);
           return Promise.resolve();
         }
-
-        var normalized = notes.map(normalizeNote);
-        totalFetched += normalized.length;
-        storeNotes(normalized);
-        postStatus('已获取 ' + totalFetched + ' 条笔记', totalFetched, false);
-
-        var lastNote = notes[notes.length - 1];
-        var lastId = lastNote.id || lastNote.noteId || lastNote.note_id || lastNote._id || '';
-        if (!lastId || notes.length < limit) {
-          postStatus('获取完成！共 ' + totalFetched + ' 条笔记', totalFetched, true);
-          return Promise.resolve();
+        if (retries < maxRetries) {
+          retries++;
+          postStatus('网络错误，重试中...', totalFetched, false);
+          return delay(Math.pow(2, retries) * 500).then(fetchPage);
         }
-        sinceId = String(lastId);
-        return delay(fetchDelay).then(fetchPage);
-      });
-    }).catch(function (e) {
-      if (e.name === 'AbortError') {
-        postStatus('已取消', totalFetched, true);
+        postStatus('网络错误: ' + e.message, totalFetched, true);
         return Promise.resolve();
-      }
-      if (retries < maxRetries) {
-        retries++;
-        postStatus('网络错误，重试中...', totalFetched, false);
-        return delay(Math.pow(2, retries) * 500).then(fetchPage);
-      }
-      postStatus('网络错误: ' + e.message, totalFetched, true);
-      return Promise.resolve();
-    });
+      });
   }
 
   function delay(ms) {
-    return new Promise(function (resolve) { setTimeout(resolve, ms); });
+    return new Promise(function (resolve) {
+      setTimeout(resolve, ms);
+    });
   }
 
   return fetchPage();
@@ -272,7 +323,9 @@ function extractTranscript(obj) {
   findTimestampStrings(obj, timestampTexts, 0);
   if (timestampTexts.length > 0) {
     // Return the longest one (most likely the full transcript)
-    timestampTexts.sort(function (a, b) { return b.length - a.length; });
+    timestampTexts.sort(function (a, b) {
+      return b.length - a.length;
+    });
     return timestampTexts[0];
   }
 
@@ -336,8 +389,14 @@ function findParagraphArray(obj, depth) {
       var t = '';
       if (typeof item === 'string') t = item;
       else if (item && typeof item === 'object') {
-        t = item.text || item.content || item.body || item.sentence ||
-            item.paragraph || item.value || '';
+        t =
+          item.text ||
+          item.content ||
+          item.body ||
+          item.sentence ||
+          item.paragraph ||
+          item.value ||
+          '';
       }
       if (t) {
         texts.push(t);
@@ -367,40 +426,42 @@ function createExportTask(noteId, type) {
     return Promise.reject(new Error('No API headers captured. Browse biji.com first.'));
   }
   var headers = Object.assign({}, capturedApiHeaders, {
-    'content-type': 'application/json'
+    'content-type': 'application/json',
   });
   return fetch(BIJI_EXPORT_API, {
     method: 'POST',
     headers: headers,
-    body: JSON.stringify({ type: type, note_ids: [noteId] })
-  }).then(function (resp) {
-    if (!resp.ok) {
-      return resp.text().then(function (body) {
-        throw new Error('Export API error HTTP ' + resp.status + ': ' + body.substring(0, 200));
-      });
-    }
-    return resp.json();
-  }).then(function (data) {
-    // Extract task ID from response — try common paths
-    var taskId = null;
-    if (data && data.c && data.c.id) {
-      taskId = data.c.id;
-    } else if (data && data.c && data.c.task_id) {
-      taskId = data.c.task_id;
-    } else if (data && data.data && data.data.id) {
-      taskId = data.data.id;
-    } else if (data && data.id) {
-      taskId = data.id;
-    } else if (data && data.c && typeof data.c === 'string') {
-      taskId = data.c;
-    }
-    if (!taskId) {
-      log('Export create response:', JSON.stringify(data).substring(0, 500));
-      throw new Error('Could not find task ID in export response');
-    }
-    log('Export task created:', taskId);
-    return taskId;
-  });
+    body: JSON.stringify({ type: type, note_ids: [noteId] }),
+  })
+    .then(function (resp) {
+      if (!resp.ok) {
+        return resp.text().then(function (body) {
+          throw new Error('Export API error HTTP ' + resp.status + ': ' + body.substring(0, 200));
+        });
+      }
+      return resp.json();
+    })
+    .then(function (data) {
+      // Extract task ID from response — try common paths
+      var taskId = null;
+      if (data && data.c && data.c.id) {
+        taskId = data.c.id;
+      } else if (data && data.c && data.c.task_id) {
+        taskId = data.c.task_id;
+      } else if (data && data.data && data.data.id) {
+        taskId = data.data.id;
+      } else if (data && data.id) {
+        taskId = data.id;
+      } else if (data && data.c && typeof data.c === 'string') {
+        taskId = data.c;
+      }
+      if (!taskId) {
+        log('Export create response:', JSON.stringify(data).substring(0, 500));
+        throw new Error('Could not find task ID in export response');
+      }
+      log('Export task created:', taskId);
+      return taskId;
+    });
 }
 
 function pollExportTask(taskId) {
@@ -418,27 +479,29 @@ function pollExportTask(taskId) {
     }
     return fetch(BIJI_EXPORT_API + '/' + taskId, {
       method: 'GET',
-      headers: headers
-    }).then(function (resp) {
-      if (!resp.ok) throw new Error('Poll failed HTTP ' + resp.status);
-      return resp.json();
-    }).then(function (data) {
-      var c = data.c || data.data || data;
-      if (c.finished || c.status === 'finished' || c.status === 'done') {
-        var accessUrl = c.access_url || c.download_url || c.url || '';
-        var filename = c.filename || c.file_name || '';
-        if (!accessUrl) {
-          log('Export poll response:', JSON.stringify(data).substring(0, 500));
-          throw new Error('Export finished but no download URL');
+      headers: headers,
+    })
+      .then(function (resp) {
+        if (!resp.ok) throw new Error('Poll failed HTTP ' + resp.status);
+        return resp.json();
+      })
+      .then(function (data) {
+        var c = data.c || data.data || data;
+        if (c.finished || c.status === 'finished' || c.status === 'done') {
+          var accessUrl = c.access_url || c.download_url || c.url || '';
+          var filename = c.filename || c.file_name || '';
+          if (!accessUrl) {
+            log('Export poll response:', JSON.stringify(data).substring(0, 500));
+            throw new Error('Export finished but no download URL');
+          }
+          log('Export ready:', accessUrl);
+          return { access_url: accessUrl, filename: filename };
         }
-        log('Export ready:', accessUrl);
-        return { access_url: accessUrl, filename: filename };
-      }
-      // Not finished yet — wait 1s and retry
-      return new Promise(function (resolve) {
-        setTimeout(resolve, 1000);
-      }).then(poll);
-    });
+        // Not finished yet — wait 1s and retry
+        return new Promise(function (resolve) {
+          setTimeout(resolve, 1000);
+        }).then(poll);
+      });
   }
 
   return poll();
@@ -499,11 +562,13 @@ chrome.runtime.onMessage.addListener(function (msg, sender, sendResponse) {
     });
     return true; // async sendResponse
   } else if (msg.type === 'exportNote') {
-    exportNoteViaAPI(msg.noteId, msg.format).then(function (result) {
-      sendResponse(result);
-    }).catch(function (err) {
-      sendResponse({ error: err.message });
-    });
+    exportNoteViaAPI(msg.noteId, msg.format)
+      .then(function (result) {
+        sendResponse(result);
+      })
+      .catch(function (err) {
+        sendResponse({ error: err.message });
+      });
     return true; // async sendResponse
   } else if (msg.type === 'fetchAll') {
     // Active fetch: fetch all notes via API from Service Worker
@@ -529,7 +594,8 @@ function storeNotes(newNotes) {
       var count = Object.keys(notes).length;
       updateBadge(count);
       // Broadcast updated count to popup (after storage write is confirmed)
-      chrome.runtime.sendMessage({ type: 'notesUpdated', count: count }).catch(function () { // Popup may be closed; ignore
+      chrome.runtime.sendMessage({ type: 'notesUpdated', count: count }).catch(function () {
+        // Popup may be closed; ignore
       });
     });
   });
@@ -541,7 +607,7 @@ function storeDiscoveryLog(entry) {
     logs.unshift({
       url: entry.url,
       preview: entry.preview,
-      time: new Date().toISOString()
+      time: new Date().toISOString(),
     });
     // Keep last 100 logs
     if (logs.length > 100) logs = logs.slice(0, 100);

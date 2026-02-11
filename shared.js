@@ -11,14 +11,20 @@
     transcriptMode: 'none',
     folderMode: 'flat',
     frontmatterFields: {
-      title: true, created: true, modified: true, source: true,
-      type: true, tags: true, biji_id: true, exported: true
+      title: true,
+      created: true,
+      modified: true,
+      source: true,
+      type: true,
+      tags: true,
+      biji_id: true,
+      exported: true,
     },
     imageFormat: 'link',
     includeAudioLink: true,
     includeImages: true,
     voiceSentenceSplit: true,
-    tagPrefix: '#'
+    tagPrefix: '#',
   };
 
   window.loadSettings = function (cb) {
@@ -35,10 +41,25 @@
       try {
         var d = new Date(typeof dateStr === 'number' ? dateStr * 1000 : dateStr);
         if (isNaN(d.getTime())) return String(dateStr);
-        var p = function (n) { return String(n).padStart(2, '0'); };
-        return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()) +
-          'T' + p(d.getHours()) + ':' + p(d.getMinutes()) + ':' + p(d.getSeconds());
-      } catch (e) { return String(dateStr); }
+        var p = function (n) {
+          return String(n).padStart(2, '0');
+        };
+        return (
+          d.getFullYear() +
+          '-' +
+          p(d.getMonth() + 1) +
+          '-' +
+          p(d.getDate()) +
+          'T' +
+          p(d.getHours()) +
+          ':' +
+          p(d.getMinutes()) +
+          ':' +
+          p(d.getSeconds())
+        );
+      } catch (e) {
+        return String(dateStr);
+      }
     },
 
     formatDateShort: function (dateStr, fmt) {
@@ -46,28 +67,40 @@
       try {
         var d = new Date(typeof dateStr === 'number' ? dateStr * 1000 : dateStr);
         if (isNaN(d.getTime())) return null;
-        var p = function (n) { return String(n).padStart(2, '0'); };
+        var p = function (n) {
+          return String(n).padStart(2, '0');
+        };
         var Y = String(d.getFullYear());
         var M = p(d.getMonth() + 1);
         var D = p(d.getDate());
         if (fmt === 'YYYYMMDD') return Y + M + D;
         if (fmt === 'YYYY/MM/DD') return Y + '/' + M + '/' + D;
         return Y + '-' + M + '-' + D;
-      } catch (e) { return null; }
+      } catch (e) {
+        return null;
+      }
     },
 
     formatTags: function (tags) {
       if (!tags || !Array.isArray(tags)) return [];
-      return tags.map(function (t) {
-        var name = typeof t === 'string' ? t : (t.name || t.label || '');
-        return name.replace(/\s+/g, '-');
-      }).filter(Boolean);
+      return tags
+        .map(function (t) {
+          var name = typeof t === 'string' ? t : t.name || t.label || '';
+          return name.replace(/\s+/g, '-');
+        })
+        .filter(Boolean);
     },
 
     frontmatter: function (note, settings) {
       var fields = (settings && settings.frontmatterFields) || {
-        title: true, created: true, modified: true, source: true,
-        type: true, tags: true, biji_id: true, exported: true
+        title: true,
+        created: true,
+        modified: true,
+        source: true,
+        type: true,
+        tags: true,
+        biji_id: true,
+        exported: true,
       };
       var lines = ['---'];
       if (fields.title) {
@@ -92,7 +125,9 @@
         var tags = this.formatTags(note.tags);
         if (tags.length > 0) {
           lines.push('tags:');
-          tags.forEach(function (t) { lines.push('  - "' + t + '"'); });
+          tags.forEach(function (t) {
+            lines.push('  - "' + t + '"');
+          });
         }
       }
       if (fields.biji_id && note.id) {
@@ -122,16 +157,19 @@
       md = md.replace(/<\/?[uo]l[^>]*>/gi, '\n');
       md = md.replace(/<[^>]+>/g, '');
       md = md.replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>');
-      md = md.replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&nbsp;/g, ' ');
+      md = md
+        .replace(/&quot;/g, '"')
+        .replace(/&#39;/g, "'")
+        .replace(/&nbsp;/g, ' ');
       md = md.replace(/\n{3,}/g, '\n\n');
       return md.trim();
     },
 
     formatImage: function (img, index, settings) {
-      var url = typeof img === 'string' ? img : (img.url || img.src || '');
+      var url = typeof img === 'string' ? img : img.url || img.src || '';
       if (!url) return '';
       if (settings && settings.imageFormat === 'obsidian') {
-        var fname = url.split('/').pop().split('?')[0] || ('image-' + (index + 1) + '.png');
+        var fname = url.split('/').pop().split('?')[0] || 'image-' + (index + 1) + '.png';
         return '![[' + fname + ']]';
       }
       return '![\u56FE\u7247 ' + (index + 1) + '](' + url + ')';
@@ -139,7 +177,10 @@
 
     convert: function (note, settings) {
       var parts = [this.frontmatter(note, settings), ''];
-      if (note.title) { parts.push('# ' + note.title); parts.push(''); }
+      if (note.title) {
+        parts.push('# ' + note.title);
+        parts.push('');
+      }
       var content = note.content || '';
       if (content.includes('<') && content.includes('>')) {
         content = this.htmlToMd(content);
@@ -166,14 +207,16 @@
 
     _looksLikeMarkdown: function (text) {
       // Detect if text contains markdown syntax
-      return /^#{1,6}\s/m.test(text) ||
-             /\*\*[^*]+\*\*/m.test(text) ||
-             /\*[^*]+\*/m.test(text) ||
-             /\[.+?\]\(.+?\)/m.test(text) ||
-             /^[-*+]\s/m.test(text) ||
-             /^\d+\.\s/m.test(text) ||
-             /^---$/m.test(text) ||
-             /^>\s/m.test(text);
+      return (
+        /^#{1,6}\s/m.test(text) ||
+        /\*\*[^*]+\*\*/m.test(text) ||
+        /\*[^*]+\*/m.test(text) ||
+        /\[.+?\]\(.+?\)/m.test(text) ||
+        /^[-*+]\s/m.test(text) ||
+        /^\d+\.\s/m.test(text) ||
+        /^---$/m.test(text) ||
+        /^>\s/m.test(text)
+      );
     },
 
     mdToHtml: function (md) {
@@ -221,7 +264,7 @@
       }
       parts.push(content);
       return parts.join('\n');
-    }
+    },
   };
   window.MD = MD;
 
@@ -229,30 +272,42 @@
   var ServerExporter = {
     exportNote: function (noteId, format) {
       return new Promise(function (resolve, reject) {
-        chrome.runtime.sendMessage({
-          type: 'exportNote', noteId: noteId, format: format
-        }, function (response) {
-          if (chrome.runtime.lastError) {
-            reject(new Error(chrome.runtime.lastError.message || 'Message failed'));
-            return;
+        chrome.runtime.sendMessage(
+          {
+            type: 'exportNote',
+            noteId: noteId,
+            format: format,
+          },
+          function (response) {
+            if (chrome.runtime.lastError) {
+              reject(new Error(chrome.runtime.lastError.message || 'Message failed'));
+              return;
+            }
+            if (!response || response.error) {
+              reject(new Error((response && response.error) || 'Export failed'));
+              return;
+            }
+            fetch(response.access_url)
+              .then(function (res) {
+                if (!res.ok) throw new Error('Download failed: ' + res.status);
+                return res.blob();
+              })
+              .then(resolve)
+              .catch(reject);
           }
-          if (!response || response.error) {
-            reject(new Error((response && response.error) || 'Export failed'));
-            return;
-          }
-          fetch(response.access_url).then(function (res) {
-            if (!res.ok) throw new Error('Download failed: ' + res.status);
-            return res.blob();
-          }).then(resolve).catch(reject);
-        });
+        );
       });
-    }
+    },
   };
   window.ServerExporter = ServerExporter;
 
   // --- File naming ---
   window.sanitize = function (name) {
-    return name.replace(/[<>:"/\\|?*]/g, '').replace(/\s+/g, ' ').trim().substring(0, 100);
+    return name
+      .replace(/[<>:"/\\|?*]/g, '')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .substring(0, 100);
   };
 
   window.getDateParts = function (note, settings) {
@@ -261,13 +316,15 @@
     try {
       var d = new Date(typeof raw === 'number' ? raw * 1000 : raw);
       if (isNaN(d.getTime())) return { date: 'undated', year: 'undated', month: '00' };
-      var p = function (n) { return String(n).padStart(2, '0'); };
+      var p = function (n) {
+        return String(n).padStart(2, '0');
+      };
       var fmt = (settings && settings.dateFormat) || 'YYYY-MM-DD';
       var dateStr = MD.formatDateShort(raw, fmt) || 'undated';
       return {
         date: dateStr,
         year: String(d.getFullYear()),
-        month: p(d.getMonth() + 1)
+        month: p(d.getMonth() + 1),
       };
     } catch (e) {
       return { date: 'undated', year: 'undated', month: '00' };
@@ -277,7 +334,7 @@
   window.filename = function (note, settings) {
     var template = (settings && settings.filenameTemplate) || '{date}-{title}';
     var parts = window.getDateParts(note, settings);
-    var title = note.title ? window.sanitize(note.title) : ('note-' + note.id);
+    var title = note.title ? window.sanitize(note.title) : 'note-' + note.id;
     var result = template
       .replace(/\{date\}/g, parts.date)
       .replace(/\{title\}/g, title)
@@ -336,11 +393,13 @@
     markExported: function (ids) {
       if (!this._exportedSet) this._exportedSet = new Set();
       var self = this;
-      ids.forEach(function (id) { self._exportedSet.add(id); });
+      ids.forEach(function (id) {
+        self._exportedSet.add(id);
+      });
       this._lastExportTime = new Date().toISOString();
       chrome.storage.local.set({
         exportedIds: Array.from(this._exportedSet),
-        lastExportTime: this._lastExportTime
+        lastExportTime: this._lastExportTime,
       });
     },
 
@@ -350,12 +409,16 @@
 
     getNewCount: function (notes) {
       var self = this;
-      return notes.filter(function (n) { return !self.isExported(n.id); }).length;
+      return notes.filter(function (n) {
+        return !self.isExported(n.id);
+      }).length;
     },
 
     getNewNotes: function (notes) {
       var self = this;
-      return notes.filter(function (n) { return !self.isExported(n.id); });
+      return notes.filter(function (n) {
+        return !self.isExported(n.id);
+      });
     },
 
     clear: function (cb) {
@@ -364,7 +427,7 @@
       chrome.storage.local.remove(['exportedIds', 'lastExportTime'], function () {
         if (cb) cb();
       });
-    }
+    },
   };
   window.ExportTracker = ExportTracker;
 
@@ -377,29 +440,36 @@
       if (self._cache[url] && self._cache[url].arrayBuffer) {
         return Promise.resolve(self._cache[url]);
       }
-      return fetch(url).then(function (res) {
-        if (!res.ok) throw new Error('Image fetch failed: ' + res.status);
-        return res.arrayBuffer();
-      }).then(function (buf) {
-        return new Promise(function (resolve) {
-          // Get dimensions from the image
-          var blob = new Blob([buf]);
-          var img = new Image();
-          img.onload = function () {
-            var result = { arrayBuffer: buf, width: img.naturalWidth, height: img.naturalHeight, blob: blob };
-            self._cache[url] = result;
-            URL.revokeObjectURL(img.src);
-            resolve(result);
-          };
-          img.onerror = function () {
-            var result = { arrayBuffer: buf, width: 400, height: 300, blob: blob };
-            self._cache[url] = result;
-            URL.revokeObjectURL(img.src);
-            resolve(result);
-          };
-          img.src = URL.createObjectURL(blob);
+      return fetch(url)
+        .then(function (res) {
+          if (!res.ok) throw new Error('Image fetch failed: ' + res.status);
+          return res.arrayBuffer();
+        })
+        .then(function (buf) {
+          return new Promise(function (resolve) {
+            // Get dimensions from the image
+            var blob = new Blob([buf]);
+            var img = new Image();
+            img.onload = function () {
+              var result = {
+                arrayBuffer: buf,
+                width: img.naturalWidth,
+                height: img.naturalHeight,
+                blob: blob,
+              };
+              self._cache[url] = result;
+              URL.revokeObjectURL(img.src);
+              resolve(result);
+            };
+            img.onerror = function () {
+              var result = { arrayBuffer: buf, width: 400, height: 300, blob: blob };
+              self._cache[url] = result;
+              URL.revokeObjectURL(img.src);
+              resolve(result);
+            };
+            img.src = URL.createObjectURL(blob);
+          });
         });
-      });
     },
 
     fetchAsBase64: function (url) {
@@ -407,44 +477,55 @@
       if (self._cache[url] && self._cache[url].base64) {
         return Promise.resolve(self._cache[url].base64);
       }
-      return fetch(url).then(function (res) {
-        if (!res.ok) throw new Error('Image fetch failed: ' + res.status);
-        return res.blob();
-      }).then(function (blob) {
-        return new Promise(function (resolve, reject) {
-          var reader = new FileReader();
-          reader.onloadend = function () {
-            var base64 = reader.result;
-            if (!self._cache[url]) self._cache[url] = {};
-            self._cache[url].base64 = base64;
-            resolve(base64);
-          };
-          reader.onerror = reject;
-          reader.readAsDataURL(blob);
+      return fetch(url)
+        .then(function (res) {
+          if (!res.ok) throw new Error('Image fetch failed: ' + res.status);
+          return res.blob();
+        })
+        .then(function (blob) {
+          return new Promise(function (resolve, reject) {
+            var reader = new FileReader();
+            reader.onloadend = function () {
+              var base64 = reader.result;
+              if (!self._cache[url]) self._cache[url] = {};
+              self._cache[url].base64 = base64;
+              resolve(base64);
+            };
+            reader.onerror = reject;
+            reader.readAsDataURL(blob);
+          });
         });
-      });
     },
 
     clearCache: function () {
       this._cache = {};
-    }
+    },
   };
   window.ImageFetcher = ImageFetcher;
 
   // --- PDF Converter ---
   var PDFConverter = {
     noteToHtml: function (note, settings) {
-      var html = '<div style="font-family: -apple-system, \'Microsoft YaHei\', \'PingFang SC\', sans-serif; max-width: 700px; margin: 0 auto; padding: 20px; font-size: 14px; line-height: 1.8; color: #333;">';
+      var html =
+        "<div style=\"font-family: -apple-system, 'Microsoft YaHei', 'PingFang SC', sans-serif; max-width: 700px; margin: 0 auto; padding: 20px; font-size: 14px; line-height: 1.8; color: #333;\">";
 
       // Title
       if (note.title) {
-        html += '<h1 style="font-size: 22px; font-weight: 600; margin-bottom: 16px; color: #222;">' + window.escapeHtml(note.title) + '</h1>';
+        html +=
+          '<h1 style="font-size: 22px; font-weight: 600; margin-bottom: 16px; color: #222;">' +
+          window.escapeHtml(note.title) +
+          '</h1>';
       }
 
       // Metadata
       var date = MD.formatDate(note.createdAt);
       if (date) {
-        html += '<div style="font-size: 12px; color: #888; margin-bottom: 16px;">' + window.escapeHtml(date) + ' | ' + window.escapeHtml(note.type || 'text') + '</div>';
+        html +=
+          '<div style="font-size: 12px; color: #888; margin-bottom: 16px;">' +
+          window.escapeHtml(date) +
+          ' | ' +
+          window.escapeHtml(note.type || 'text') +
+          '</div>';
       }
 
       // Content
@@ -458,7 +539,10 @@
         var paragraphs = content.split(/\n\n+/);
         paragraphs.forEach(function (p) {
           if (p.trim()) {
-            html += '<p style="margin: 10px 0;">' + window.escapeHtml(p.trim()).replace(/\n/g, '<br>') + '</p>';
+            html +=
+              '<p style="margin: 10px 0;">' +
+              window.escapeHtml(p.trim()).replace(/\n/g, '<br>') +
+              '</p>';
           }
         });
       }
@@ -466,18 +550,25 @@
       // Audio link
       if (note.audioUrl && settings.includeAudioLink !== false) {
         html += '<hr style="margin: 20px 0; border: none; border-top: 1px solid #ddd;">';
-        html += '<p><strong>\u5F55\u97F3</strong>: <a href="' + window.escapeHtml(note.audioUrl) + '">\u6536\u542C</a></p>';
+        html +=
+          '<p><strong>\u5F55\u97F3</strong>: <a href="' +
+          window.escapeHtml(note.audioUrl) +
+          '">\u6536\u542C</a></p>';
       }
 
       // Merged transcript
       if (settings.transcriptMode === 'merged' && note.rawTranscript) {
         html += '<hr style="margin: 20px 0; border: none; border-top: 1px solid #ddd;">';
-        html += '<h2 style="font-size: 16px; margin-bottom: 12px;">\u539F\u59CB\u6587\u5B57\u8BB0\u5F55</h2>';
+        html +=
+          '<h2 style="font-size: 16px; margin-bottom: 12px;">\u539F\u59CB\u6587\u5B57\u8BB0\u5F55</h2>';
         var rawContent = note.rawTranscript;
         if (rawContent.includes('<') && rawContent.includes('>')) {
           html += '<div>' + rawContent + '</div>';
         } else {
-          html += '<p style="margin: 10px 0;">' + window.escapeHtml(rawContent).replace(/\n/g, '<br>') + '</p>';
+          html +=
+            '<p style="margin: 10px 0;">' +
+            window.escapeHtml(rawContent).replace(/\n/g, '<br>') +
+            '</p>';
         }
       }
 
@@ -490,19 +581,26 @@
       if (!note.images || note.images.length === 0 || settings.includeImages === false) {
         return Promise.resolve('');
       }
-      var urls = note.images.map(function (img) {
-        return typeof img === 'string' ? img : (img.url || img.src || '');
-      }).filter(Boolean);
+      var urls = note.images
+        .map(function (img) {
+          return typeof img === 'string' ? img : img.url || img.src || '';
+        })
+        .filter(Boolean);
       if (urls.length === 0) return Promise.resolve('');
 
-      return Promise.all(urls.map(function (url) {
-        return ImageFetcher.fetchAsBase64(url).catch(function () { return null; });
-      })).then(function (base64Results) {
+      return Promise.all(
+        urls.map(function (url) {
+          return ImageFetcher.fetchAsBase64(url).catch(function () {
+            return null;
+          });
+        })
+      ).then(function (base64Results) {
         var html = '<hr style="margin: 20px 0; border: none; border-top: 1px solid #ddd;">';
         html += '<h2 style="font-size: 16px; margin-bottom: 12px;">\u56FE\u7247</h2>';
         base64Results.forEach(function (b64) {
           if (b64) {
-            html += '<img src="' + b64 + '" style="max-width: 100%; margin: 8px 0; border-radius: 4px;">';
+            html +=
+              '<img src="' + b64 + '" style="max-width: 100%; margin: 8px 0; border-radius: 4px;">';
           }
         });
         return html;
@@ -537,21 +635,30 @@
         filename: 'note.pdf',
         image: { type: 'jpeg', quality: 0.95 },
         html2canvas: { scale: 2, useCORS: true, logging: false, windowWidth: 700 },
-        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
       };
 
-      return html2pdf().set(opt).from(container).outputPdf('blob').then(function (blob) {
-        document.body.removeChild(container);
-        return blob;
-      }).catch(function (err) {
-        if (container.parentNode) document.body.removeChild(container);
-        throw err;
-      });
+      return html2pdf()
+        .set(opt)
+        .from(container)
+        .outputPdf('blob')
+        .then(function (blob) {
+          document.body.removeChild(container);
+          return blob;
+        })
+        .catch(function (err) {
+          if (container.parentNode) document.body.removeChild(container);
+          throw err;
+        });
     },
 
     generateTranscriptPdf: function (note, settings) {
-      var html = '<div style="font-family: -apple-system, \'Microsoft YaHei\', \'PingFang SC\', sans-serif; max-width: 700px; margin: 0 auto; padding: 20px; font-size: 14px; line-height: 1.8; color: #333;">';
-      html += '<h1 style="font-size: 22px; font-weight: 600; margin-bottom: 16px; color: #222;">' + window.escapeHtml(note.title || 'Untitled') + ' \u2014 Transcript</h1>';
+      var html =
+        "<div style=\"font-family: -apple-system, 'Microsoft YaHei', 'PingFang SC', sans-serif; max-width: 700px; margin: 0 auto; padding: 20px; font-size: 14px; line-height: 1.8; color: #333;\">";
+      html +=
+        '<h1 style="font-size: 22px; font-weight: 600; margin-bottom: 16px; color: #222;">' +
+        window.escapeHtml(note.title || 'Untitled') +
+        ' \u2014 Transcript</h1>';
       var content = note.rawTranscript || note.content || '';
       if (content.includes('<') && content.includes('>')) {
         html += '<div>' + content + '</div>';
@@ -562,13 +669,16 @@
         var paragraphs = content.split(/\n\n+/);
         paragraphs.forEach(function (p) {
           if (p.trim()) {
-            html += '<p style="margin: 10px 0;">' + window.escapeHtml(p.trim()).replace(/\n/g, '<br>') + '</p>';
+            html +=
+              '<p style="margin: 10px 0;">' +
+              window.escapeHtml(p.trim()).replace(/\n/g, '<br>') +
+              '</p>';
           }
         });
       }
       html += '</div>';
       return this._generateLocalPdf(html);
-    }
+    },
   };
   window.PDFConverter = PDFConverter;
 
@@ -589,10 +699,12 @@
         if (node.nodeType === Node.TEXT_NODE) {
           var text = node.textContent;
           if (text.trim()) {
-            children.push(new docx.Paragraph({
-              children: [new docx.TextRun({ text: text, size: self.SIZE, font: self.FONT })],
-              spacing: { after: 120 }
-            }));
+            children.push(
+              new docx.Paragraph({
+                children: [new docx.TextRun({ text: text, size: self.SIZE, font: self.FONT })],
+                spacing: { after: 120 },
+              })
+            );
           }
           return;
         }
@@ -601,32 +713,55 @@
         var tag = node.tagName.toLowerCase();
 
         if (tag === 'h1' || tag === 'h2' || tag === 'h3') {
-          var headingSize = tag === 'h1' ? 32 : (tag === 'h2' ? 28 : 24);
-          children.push(new docx.Paragraph({
-            children: [new docx.TextRun({ text: node.textContent, bold: true, size: headingSize, font: self.FONT })],
-            spacing: { before: 200, after: 120 }
-          }));
+          var headingSize = tag === 'h1' ? 32 : tag === 'h2' ? 28 : 24;
+          children.push(
+            new docx.Paragraph({
+              children: [
+                new docx.TextRun({
+                  text: node.textContent,
+                  bold: true,
+                  size: headingSize,
+                  font: self.FONT,
+                }),
+              ],
+              spacing: { before: 200, after: 120 },
+            })
+          );
         } else if (tag === 'p' || tag === 'div') {
           var runs = self._inlineToRuns(node);
           if (runs.length > 0) {
-            children.push(new docx.Paragraph({
-              children: runs,
-              spacing: { after: 120 }
-            }));
+            children.push(
+              new docx.Paragraph({
+                children: runs,
+                spacing: { after: 120 },
+              })
+            );
           }
         } else if (tag === 'ul' || tag === 'ol') {
           var items = node.querySelectorAll('li');
           items.forEach(function (li) {
-            children.push(new docx.Paragraph({
-              children: [new docx.TextRun({ text: '\u2022  ' + li.textContent.trim(), size: self.SIZE, font: self.FONT })],
-              spacing: { after: 60 }
-            }));
+            children.push(
+              new docx.Paragraph({
+                children: [
+                  new docx.TextRun({
+                    text: '\u2022  ' + li.textContent.trim(),
+                    size: self.SIZE,
+                    font: self.FONT,
+                  }),
+                ],
+                spacing: { after: 60 },
+              })
+            );
           });
         } else if (tag === 'hr') {
-          children.push(new docx.Paragraph({
-            children: [new docx.TextRun({ text: '\u2500'.repeat(50), color: 'CCCCCC', size: 16 })],
-            spacing: { before: 200, after: 100 }
-          }));
+          children.push(
+            new docx.Paragraph({
+              children: [
+                new docx.TextRun({ text: '\u2500'.repeat(50), color: 'CCCCCC', size: 16 }),
+              ],
+              spacing: { before: 200, after: 100 },
+            })
+          );
         } else if (tag === 'br') {
           children.push(new docx.Paragraph({ children: [], spacing: { after: 60 } }));
         } else if (tag === 'img') {
@@ -635,21 +770,39 @@
           var href = node.getAttribute('href') || '';
           var linkText = node.textContent || href;
           if (href) {
-            children.push(new docx.Paragraph({
-              children: [
-                new docx.ExternalHyperlink({
-                  children: [new docx.TextRun({ text: linkText, style: 'Hyperlink', size: self.SIZE, font: self.FONT })],
-                  link: href
-                })
-              ],
-              spacing: { after: 120 }
-            }));
+            children.push(
+              new docx.Paragraph({
+                children: [
+                  new docx.ExternalHyperlink({
+                    children: [
+                      new docx.TextRun({
+                        text: linkText,
+                        style: 'Hyperlink',
+                        size: self.SIZE,
+                        font: self.FONT,
+                      }),
+                    ],
+                    link: href,
+                  }),
+                ],
+                spacing: { after: 120 },
+              })
+            );
           }
         } else if (tag === 'strong' || tag === 'b') {
-          children.push(new docx.Paragraph({
-            children: [new docx.TextRun({ text: node.textContent, bold: true, size: self.SIZE, font: self.FONT })],
-            spacing: { after: 120 }
-          }));
+          children.push(
+            new docx.Paragraph({
+              children: [
+                new docx.TextRun({
+                  text: node.textContent,
+                  bold: true,
+                  size: self.SIZE,
+                  font: self.FONT,
+                }),
+              ],
+              spacing: { after: 120 },
+            })
+          );
         } else {
           // Recurse into unknown elements
           for (var i = 0; i < node.childNodes.length; i++) {
@@ -677,15 +830,38 @@
         if (node.nodeType !== Node.ELEMENT_NODE) return;
         var tag = node.tagName.toLowerCase();
         if (tag === 'strong' || tag === 'b') {
-          runs.push(new docx.TextRun({ text: node.textContent, bold: true, size: self.SIZE, font: self.FONT }));
+          runs.push(
+            new docx.TextRun({
+              text: node.textContent,
+              bold: true,
+              size: self.SIZE,
+              font: self.FONT,
+            })
+          );
         } else if (tag === 'em' || tag === 'i') {
-          runs.push(new docx.TextRun({ text: node.textContent, italics: true, size: self.SIZE, font: self.FONT }));
+          runs.push(
+            new docx.TextRun({
+              text: node.textContent,
+              italics: true,
+              size: self.SIZE,
+              font: self.FONT,
+            })
+          );
         } else if (tag === 'a') {
           var href = node.getAttribute('href') || '';
-          runs.push(new docx.ExternalHyperlink({
-            children: [new docx.TextRun({ text: node.textContent || href, style: 'Hyperlink', size: self.SIZE, font: self.FONT })],
-            link: href
-          }));
+          runs.push(
+            new docx.ExternalHyperlink({
+              children: [
+                new docx.TextRun({
+                  text: node.textContent || href,
+                  style: 'Hyperlink',
+                  size: self.SIZE,
+                  font: self.FONT,
+                }),
+              ],
+              link: href,
+            })
+          );
         } else if (tag === 'br') {
           runs.push(new docx.TextRun({ break: 1 }));
         } else {
@@ -711,10 +887,12 @@
       var paragraphs = text.split(/\n\n+/);
       paragraphs.forEach(function (p) {
         if (p.trim()) {
-          children.push(new docx.Paragraph({
-            children: [new docx.TextRun({ text: p.trim(), size: self.SIZE, font: self.FONT })],
-            spacing: { after: 120 }
-          }));
+          children.push(
+            new docx.Paragraph({
+              children: [new docx.TextRun({ text: p.trim(), size: self.SIZE, font: self.FONT })],
+              spacing: { after: 120 },
+            })
+          );
         }
       });
       return children;
@@ -731,22 +909,37 @@
       var children = [];
 
       // Title
-      children.push(new docx.Paragraph({
-        children: [new docx.TextRun({ text: (note.title || 'Untitled') + ' \u2014 Transcript', bold: true, size: 36, font: self.FONT })],
-        spacing: { after: 200 }
-      }));
+      children.push(
+        new docx.Paragraph({
+          children: [
+            new docx.TextRun({
+              text: (note.title || 'Untitled') + ' \u2014 Transcript',
+              bold: true,
+              size: 36,
+              font: self.FONT,
+            }),
+          ],
+          spacing: { after: 200 },
+        })
+      );
 
       var content = note.rawTranscript || note.content || '';
       if (content.includes('<') && content.includes('>')) {
         var htmlChildren = self._htmlToDocxChildren(content);
-        htmlChildren.forEach(function (c) { children.push(c); });
+        htmlChildren.forEach(function (c) {
+          children.push(c);
+        });
       } else if (MD._looksLikeMarkdown(content)) {
         var htmlFromMd = MD.mdToHtml(content);
         var mdChildren = self._htmlToDocxChildren(htmlFromMd);
-        mdChildren.forEach(function (c) { children.push(c); });
+        mdChildren.forEach(function (c) {
+          children.push(c);
+        });
       } else {
         var textChildren = self._plainTextToChildren(content, note, settings);
-        textChildren.forEach(function (c) { children.push(c); });
+        textChildren.forEach(function (c) {
+          children.push(c);
+        });
       }
 
       return children;
@@ -758,13 +951,15 @@
       }
       var children = this._buildTranscriptChildren(note, settings);
       var doc = new docx.Document({
-        sections: [{
-          properties: {},
-          children: children
-        }]
+        sections: [
+          {
+            properties: {},
+            children: children,
+          },
+        ],
       });
       return docx.Packer.toBlob(doc);
-    }
+    },
   };
   window.DOCXConverter = DOCXConverter;
 
@@ -798,8 +993,12 @@
   // Sort notes by createdAt (newest first)
   window.sortNotesByDate = function (arr) {
     arr.sort(function (a, b) {
-      var tA = a.createdAt ? new Date(typeof a.createdAt === 'number' ? a.createdAt * 1000 : a.createdAt).getTime() : 0;
-      var tB = b.createdAt ? new Date(typeof b.createdAt === 'number' ? b.createdAt * 1000 : b.createdAt).getTime() : 0;
+      var tA = a.createdAt
+        ? new Date(typeof a.createdAt === 'number' ? a.createdAt * 1000 : a.createdAt).getTime()
+        : 0;
+      var tB = b.createdAt
+        ? new Date(typeof b.createdAt === 'number' ? b.createdAt * 1000 : b.createdAt).getTime()
+        : 0;
       return tB - tA;
     });
     return arr;
@@ -809,7 +1008,9 @@
   var ExportEngine = {
     // Fetch missing rawTranscript for voice notes via background.js detail API
     fetchMissingTranscripts: function (notes, onProgress) {
-      var missing = notes.filter(function (n) { return !n.rawTranscript; });
+      var missing = notes.filter(function (n) {
+        return !n.rawTranscript;
+      });
       if (missing.length === 0) return Promise.resolve();
 
       var done = 0;
@@ -822,25 +1023,32 @@
         if (onProgress) onProgress(done, total);
 
         return new Promise(function (resolve) {
-          chrome.runtime.sendMessage({
-            type: 'fetchTranscript',
-            noteId: note.id,
-            noteType: note.noteType || note.type || ''
-          }, function (res) {
-            if (chrome.runtime.lastError) {
-              console.warn('[Biji Ext] Transcript fetch error for', note.id, chrome.runtime.lastError);
+          chrome.runtime.sendMessage(
+            {
+              type: 'fetchTranscript',
+              noteId: note.id,
+              noteType: note.noteType || note.type || '',
+            },
+            function (res) {
+              if (chrome.runtime.lastError) {
+                console.warn(
+                  '[Biji Ext] Transcript fetch error for',
+                  note.id,
+                  chrome.runtime.lastError
+                );
+                resolve();
+                return;
+              }
+              if (res && res.transcript) {
+                note.rawTranscript = res.transcript;
+                chrome.runtime.sendMessage({
+                  type: 'storeVueNotes',
+                  notes: [{ id: note.id, rawTranscript: res.transcript }],
+                });
+              }
               resolve();
-              return;
             }
-            if (res && res.transcript) {
-              note.rawTranscript = res.transcript;
-              chrome.runtime.sendMessage({
-                type: 'storeVueNotes',
-                notes: [{ id: note.id, rawTranscript: res.transcript }]
-              });
-            }
-            resolve();
-          });
+          );
         }).then(function () {
           return fetchNext(index + 1);
         });
@@ -851,7 +1059,9 @@
 
     // Get list of active file formats from format state object
     getActiveFormats: function (activeFileFormats) {
-      return Object.keys(activeFileFormats).filter(function (f) { return activeFileFormats[f]; });
+      return Object.keys(activeFileFormats).filter(function (f) {
+        return activeFileFormats[f];
+      });
     },
 
     // Process a single note's transcript files for ZIP export
@@ -865,7 +1075,9 @@
         chain = chain.then(function () {
           if (format === 'md') {
             if (settings.transcriptMode === 'separate') {
-              var tFn = window.fullPathWithFormat(note, settings, 'md').replace('.md', '-transcript.md');
+              var tFn = window
+                .fullPathWithFormat(note, settings, 'md')
+                .replace('.md', '-transcript.md');
               tFn = window.deduplicateFilename(tFn, used, '.md');
               used[tFn] = true;
               folder.file(tFn, MD.convertTranscript(note, settings));
@@ -873,26 +1085,34 @@
             // merged mode: already appended to main MD content
           } else if (format === 'pdf') {
             if (settings.transcriptMode !== 'separate') return;
-            var tFn = window.fullPathWithFormat(note, settings, 'pdf').replace('.pdf', '-transcript.pdf');
+            var tFn = window
+              .fullPathWithFormat(note, settings, 'pdf')
+              .replace('.pdf', '-transcript.pdf');
             tFn = window.deduplicateFilename(tFn, used, '.pdf');
             used[tFn] = true;
-            return PDFConverter.generateTranscriptPdf(note, settings).then(function (blob) {
-              folder.file(tFn, blob);
-            }).catch(function () {
-              var fallback = tFn.replace('.pdf', '.md');
-              folder.file(fallback, MD.convertTranscript(note, settings));
-            });
+            return PDFConverter.generateTranscriptPdf(note, settings)
+              .then(function (blob) {
+                folder.file(tFn, blob);
+              })
+              .catch(function () {
+                var fallback = tFn.replace('.pdf', '.md');
+                folder.file(fallback, MD.convertTranscript(note, settings));
+              });
           } else if (format === 'docx') {
             if (settings.transcriptMode !== 'separate') return;
-            var tFn = window.fullPathWithFormat(note, settings, 'docx').replace('.docx', '-transcript.docx');
+            var tFn = window
+              .fullPathWithFormat(note, settings, 'docx')
+              .replace('.docx', '-transcript.docx');
             tFn = window.deduplicateFilename(tFn, used, '.docx');
             used[tFn] = true;
-            return DOCXConverter.generateTranscriptDocx(note, settings).then(function (blob) {
-              folder.file(tFn, blob);
-            }).catch(function () {
-              var fallback = tFn.replace('.docx', '.md');
-              folder.file(fallback, MD.convertTranscript(note, settings));
-            });
+            return DOCXConverter.generateTranscriptDocx(note, settings)
+              .then(function (blob) {
+                folder.file(tFn, blob);
+              })
+              .catch(function () {
+                var fallback = tFn.replace('.docx', '.md');
+                folder.file(fallback, MD.convertTranscript(note, settings));
+              });
           }
         });
       });
@@ -913,10 +1133,12 @@
 
         function processFormat(fmtIndex) {
           if (fmtIndex >= formats.length) {
-            return ExportEngine.processTranscript(note, formats, folder, used, settings).then(function () {
-              if (onProgress) onProgress(index + 1, total);
-              return processNote(index + 1);
-            });
+            return ExportEngine.processTranscript(note, formats, folder, used, settings).then(
+              function () {
+                if (onProgress) onProgress(index + 1, total);
+                return processNote(index + 1);
+              }
+            );
           }
 
           var format = formats[fmtIndex];
@@ -945,19 +1167,22 @@
             genPromise = ServerExporter.exportNote(note.id, 'docx');
           }
 
-          return genPromise.then(function (data) {
-            folder.file(fn, data);
-          }).catch(function (err) {
-            console.warn('[Biji Ext] Export error (' + format + ') for', note.id, err);
-            // Fallback to MD on server export failure
-            var mdFn = fn.replace(ext, '.md');
-            if (!used[mdFn]) {
-              folder.file(mdFn, MD.convert(note, settings));
-              used[mdFn] = true;
-            }
-          }).then(function () {
-            return processFormat(fmtIndex + 1);
-          });
+          return genPromise
+            .then(function (data) {
+              folder.file(fn, data);
+            })
+            .catch(function (err) {
+              console.warn('[Biji Ext] Export error (' + format + ') for', note.id, err);
+              // Fallback to MD on server export failure
+              var mdFn = fn.replace(ext, '.md');
+              if (!used[mdFn]) {
+                folder.file(mdFn, MD.convert(note, settings));
+                used[mdFn] = true;
+              }
+            })
+            .then(function () {
+              return processFormat(fmtIndex + 1);
+            });
         }
 
         return processFormat(0);
@@ -971,7 +1196,11 @@
       return zip.generateAsync({ type: 'blob', compression: 'DEFLATE' }).then(function (content) {
         var ts = new Date().toISOString().substring(0, 10);
         saveAs(content, 'biji-export-' + ts + '.zip');
-        ExportTracker.markExported(notes.map(function (n) { return n.id; }));
+        ExportTracker.markExported(
+          notes.map(function (n) {
+            return n.id;
+          })
+        );
         return { success: true };
       });
     },
@@ -980,7 +1209,9 @@
     vaultExport: function (notes, settings, onProgress) {
       var subfolder = settings.vaultSubfolder || 'biji-notes';
       var converter = {
-        filename: function (note) { return window.fullPath(note, settings); },
+        filename: function (note) {
+          return window.fullPath(note, settings);
+        },
         convert: function (note) {
           if (settings.transcriptMode === 'merged' && note.rawTranscript) {
             var mainContent = MD.convert(note, settings);
@@ -988,37 +1219,48 @@
             if (rawContent.includes('<') && rawContent.includes('>')) {
               rawContent = MD.htmlToMd(rawContent);
             }
-            return mainContent + '\n\n---\n\n## \u539F\u59CB\u6587\u5B57\u8BB0\u5F55\n\n' + rawContent;
+            return (
+              mainContent + '\n\n---\n\n## \u539F\u59CB\u6587\u5B57\u8BB0\u5F55\n\n' + rawContent
+            );
           }
           return MD.convert(note, settings);
-        }
+        },
       };
 
-      return VaultWriter.writeAllNotes(notes, subfolder, converter, onProgress).then(function (result) {
-        if (settings.transcriptMode === 'separate') {
-          var notesWithContent = notes.filter(function (n) { return !!n.content; });
-          if (notesWithContent.length > 0) {
-            var txConverter = {
-              filename: function (note) {
-                return window.fullPath(note, settings).replace('.md', '-transcript.md');
-              },
-              convert: function (note) {
-                return MD.convertTranscript(note, settings);
-              }
-            };
-            return VaultWriter.writeAllNotes(notesWithContent, subfolder, txConverter, function (done, total) {
-              if (onProgress) onProgress(done, total, done, 0);
-            }).then(function (txResult) {
-              return {
-                written: result.written + txResult.written,
-                errors: result.errors.concat(txResult.errors)
-              };
+      return VaultWriter.writeAllNotes(notes, subfolder, converter, onProgress).then(
+        function (result) {
+          if (settings.transcriptMode === 'separate') {
+            var notesWithContent = notes.filter(function (n) {
+              return !!n.content;
             });
+            if (notesWithContent.length > 0) {
+              var txConverter = {
+                filename: function (note) {
+                  return window.fullPath(note, settings).replace('.md', '-transcript.md');
+                },
+                convert: function (note) {
+                  return MD.convertTranscript(note, settings);
+                },
+              };
+              return VaultWriter.writeAllNotes(
+                notesWithContent,
+                subfolder,
+                txConverter,
+                function (done, total) {
+                  if (onProgress) onProgress(done, total, done, 0);
+                }
+              ).then(function (txResult) {
+                return {
+                  written: result.written + txResult.written,
+                  errors: result.errors.concat(txResult.errors),
+                };
+              });
+            }
           }
+          return result;
         }
-        return result;
-      });
-    }
+      );
+    },
   };
   window.ExportEngine = ExportEngine;
 })();

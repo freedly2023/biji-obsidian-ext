@@ -10,17 +10,17 @@ Chrome Manifest V3 扩展，将 biji.com（Get笔记）的语音/文字笔记导
 
 ### 核心能力
 
-| 能力 | 实现方式 |
-|------|----------|
-| 被动捕获 | XHR/Fetch hook 拦截 biji.com API 响应 |
-| Vue Store 扫描 | 页面上下文直接读取 Vue 2/3 + Vuex/Pinia 状态 |
-| 主动全量获取 | 调用 biji.com API 进行游标分页，自动遍历所有笔记 |
-| ZIP 导出 | JSZip 打包下载 |
-| Vault 直写 | File System Access API 直接写入 Obsidian vault 目录 |
-| 批量选择 | 在 popup 中勾选笔记，仅导出选中项 |
-| PDF/DOCX 导出 | html2pdf.js (PDF) + docx.js (DOCX) 格式导出 |
-| 增量导出 | 追踪已导出笔记 ID，支持"仅导出新增"功能 |
-| 笔记管理页 | 全页面搜索/筛选/排序/分页/批量导出 |
+| 能力           | 实现方式                                            |
+| -------------- | --------------------------------------------------- |
+| 被动捕获       | XHR/Fetch hook 拦截 biji.com API 响应               |
+| Vue Store 扫描 | 页面上下文直接读取 Vue 2/3 + Vuex/Pinia 状态        |
+| 主动全量获取   | 调用 biji.com API 进行游标分页，自动遍历所有笔记    |
+| ZIP 导出       | JSZip 打包下载                                      |
+| Vault 直写     | File System Access API 直接写入 Obsidian vault 目录 |
+| 批量选择       | 在 popup 中勾选笔记，仅导出选中项                   |
+| PDF/DOCX 导出  | html2pdf.js (PDF) + docx.js (DOCX) 格式导出         |
+| 增量导出       | 追踪已导出笔记 ID，支持"仅导出新增"功能             |
+| 笔记管理页     | 全页面搜索/筛选/排序/分页/批量导出                  |
 
 ---
 
@@ -91,31 +91,31 @@ Chrome Extension 有三个隔离的 JS 运行上下文：
 
 ### 3.2 消息类型清单
 
-| type | 方向 | payload | 说明 |
-|------|------|---------|------|
-| `notes` | inject→content→background | `{ url, notes[] }` | 捕获到的笔记数组 |
-| `discovery` | inject→content→background | `{ url, preview }` | API 发现日志 |
-| `fetchStatus` | inject→content→background→popup | `{ status, fetched, done }` | 主动获取进度 |
-| `storeVueNotes` | popup→background | `{ notes[] }` | Vue 扫描结果存储 |
-| `getNotes` | popup→background | — | 请求所有笔记（async response） |
-| `getDiscovery` | popup→background | — | 请求发现日志 |
-| `clearNotes` | popup→background | — | 清空笔记 |
-| `clearDiscovery` | popup→background | — | 清空日志 |
-| `scanVueStore` | popup→content→inject | — | 触发 Vue Store 扫描 |
-| `fetchAll` | popup→content→inject | `{ fetchDelay }` | 触发全量获取 |
-| `cancelFetch` | popup→content→inject | — | 取消全量获取 |
-| `fetchTranscript` | popup→content→inject | `{ noteId }` | 获取单条笔记的原始转文字 |
+| type              | 方向                            | payload                     | 说明                           |
+| ----------------- | ------------------------------- | --------------------------- | ------------------------------ |
+| `notes`           | inject→content→background       | `{ url, notes[] }`          | 捕获到的笔记数组               |
+| `discovery`       | inject→content→background       | `{ url, preview }`          | API 发现日志                   |
+| `fetchStatus`     | inject→content→background→popup | `{ status, fetched, done }` | 主动获取进度                   |
+| `storeVueNotes`   | popup→background                | `{ notes[] }`               | Vue 扫描结果存储               |
+| `getNotes`        | popup→background                | —                           | 请求所有笔记（async response） |
+| `getDiscovery`    | popup→background                | —                           | 请求发现日志                   |
+| `clearNotes`      | popup→background                | —                           | 清空笔记                       |
+| `clearDiscovery`  | popup→background                | —                           | 清空日志                       |
+| `scanVueStore`    | popup→content→inject            | —                           | 触发 Vue Store 扫描            |
+| `fetchAll`        | popup→content→inject            | `{ fetchDelay }`            | 触发全量获取                   |
+| `cancelFetch`     | popup→content→inject            | —                           | 取消全量获取                   |
+| `fetchTranscript` | popup→content→inject            | `{ noteId }`                | 获取单条笔记的原始转文字       |
 
 ### 3.3 CustomEvent 清单 (content.js ↔ inject.js)
 
-| 事件名 | 方向 | detail |
-|--------|------|--------|
-| `biji-ext-data` | inject→content | `JSON.stringify({ type, payload })` |
-| `biji-ext-scan-request` | content→inject | 无 |
-| `biji-ext-scan-result` | inject→content | `JSON.stringify({ notes })` |
-| `biji-ext-fetch-all` | content→inject | `JSON.stringify({ fetchDelay })` |
-| `biji-ext-fetch-cancel` | content→inject | 无 |
-| `biji-ext-fetch-transcript` | content→inject | `JSON.stringify({ noteId })` |
+| 事件名                       | 方向           | detail                                   |
+| ---------------------------- | -------------- | ---------------------------------------- |
+| `biji-ext-data`              | inject→content | `JSON.stringify({ type, payload })`      |
+| `biji-ext-scan-request`      | content→inject | 无                                       |
+| `biji-ext-scan-result`       | inject→content | `JSON.stringify({ notes })`              |
+| `biji-ext-fetch-all`         | content→inject | `JSON.stringify({ fetchDelay })`         |
+| `biji-ext-fetch-cancel`      | content→inject | 无                                       |
+| `biji-ext-fetch-transcript`  | content→inject | `JSON.stringify({ noteId })`             |
 | `biji-ext-transcript-result` | inject→content | `JSON.stringify({ noteId, transcript })` |
 
 ---
@@ -142,20 +142,21 @@ inject.js 和 background.js 都有 `normalizeNote()` 函数，将 API 返回的�
 ```
 
 **rawTranscript 字段说明：**
+
 - 语音笔记的 `content` 通常是 AI 总结内容，`rawTranscript` 是原始录音转文字
 - normalizeNote() 会尝试多个候选字段名：`transcript`, `rawText`, `raw_text`, `voiceText`, `voice_text`, `asr`, `asrText`, `asr_text`, `originalText`, `original_text`, `speechText`, `speech_text`, `rawContent`, `raw_content`
 - 如果列表 API 不包含该字段，导出时可通过 `fetchTranscript` 消息从 `/note/{id}/web` 页面逐条获取
 
 ### 4.2 chrome.storage.local 结构
 
-| Key | 类型 | 说明 |
-|-----|------|------|
-| `notes` | `{ [id]: NormalizedNote }` | 所有捕获的笔记，以 ID 为键 |
-| `discoveryLogs` | `Array<{ url, preview, time }>` | API 发现日志，最多 100 条 |
-| `settings` | `Settings` | 用户设置（完整结构见下方） |
-| `discoveryMode` | `Boolean` | 遗留字段，与 settings.discoveryMode 同步 |
-| `exportedIds` | `string[]` | 已导出笔记 ID 列表（增量导出追踪） |
-| `lastExportTime` | `string` (ISO) | 上次导出时间 |
+| Key              | 类型                            | 说明                                     |
+| ---------------- | ------------------------------- | ---------------------------------------- |
+| `notes`          | `{ [id]: NormalizedNote }`      | 所有捕获的笔记，以 ID 为键               |
+| `discoveryLogs`  | `Array<{ url, preview, time }>` | API 发现日志，最多 100 条                |
+| `settings`       | `Settings`                      | 用户设置（完整结构见下方）               |
+| `discoveryMode`  | `Boolean`                       | 遗留字段，与 settings.discoveryMode 同步 |
+| `exportedIds`    | `string[]`                      | 已导出笔记 ID 列表（增量导出追踪）       |
+| `lastExportTime` | `string` (ISO)                  | 上次导出时间                             |
 
 ### 4.3 Settings 完整结构与默认值
 
@@ -218,24 +219,26 @@ inject.js 和 background.js 都有 `normalizeNote()` 函数，将 API 返回的�
 ### 5.2 inject.js（页面上下文）
 
 运行在 biji.com 的页面 JS 上下文中（非隔离世界），因此可以：
+
 - 访问 `window.__vue__`、`__vue_app__`、`__INITIAL_STATE__`
 - Hook `XMLHttpRequest` 和 `fetch`
 - 使用页面 cookie 发起 API 请求
 
 **主要模块：**
 
-| 模块 | 功能 |
-|------|------|
-| `normalizeNote(raw)` | 原始笔记 → 标准格式（含 rawTranscript 字段） |
+| 模块                         | 功能                                                       |
+| ---------------------------- | ---------------------------------------------------------- |
+| `normalizeNote(raw)`         | 原始笔记 → 标准格式（含 rawTranscript 字段）               |
 | `findNotesArray(obj, depth)` | 递归搜索对象树中的笔记数组（优先键：notes, list, data...） |
-| `scanVueStore()` | 扫描 Vue 2/3 的 Vuex/Pinia state |
-| `autoScanVueStore()` | 页面加载后自动扫描（1s→2s→3s→5s→8s 递增重试） |
-| `processResponse(url, text)` | 处理拦截的 API 响应，提取笔记 + 字段发现日志 |
-| `fetchRawTranscript(noteId)` | 从 `/note/{id}/web` 页面获取原始转文字（备用方案） |
-| `HookedXHR` | XMLHttpRequest 代理 |
-| `fetch` hook | fetch 代理 |
+| `scanVueStore()`             | 扫描 Vue 2/3 的 Vuex/Pinia state                           |
+| `autoScanVueStore()`         | 页面加载后自动扫描（1s→2s→3s→5s→8s 递增重试）              |
+| `processResponse(url, text)` | 处理拦截的 API 响应，提取笔记 + 字段发现日志               |
+| `fetchRawTranscript(noteId)` | 从 `/note/{id}/web` 页面获取原始转文字（备用方案）         |
+| `HookedXHR`                  | XMLHttpRequest 代理                                        |
+| `fetch` hook                 | fetch 代理                                                 |
 
 **API 信息：**
+
 - 基础 URL: `https://get-notes.luojilab.com/voicenotes/web/notes`
 - 分页参数: `?limit=50&since_id=<lastId>&sort=create_desc`
 - 认证: `credentials: 'include'`（依赖页面 cookie）
@@ -266,57 +269,58 @@ inject.js 和 background.js 都有 `normalizeNote()` 函数，将 API 返回的�
 
 **UI 区域（step-based 流程）：**
 
-| 区域 | 功能 |
-|------|------|
-| header | 标题 + ⚙ 设置按钮 |
-| Step 1 获取笔记 | 获取全部笔记按钮 + 取消 + 状态文字 |
-| noteCountBar | 已捕获 N 条笔记 + 全选 checkbox（inline） |
-| noteList | 笔记列表（最多显示 50 条，每条前有 checkbox） |
-| Step 2 导出 | 格式切换（ZIP/Vault）+ Vault 状态（inline）+ 统一导出按钮 |
-| progress | 进度条 |
-| advancedToggle | 折叠的"高级选项"（扫描 Vue Store / 清空数据 / Discovery 模式） |
-| tip | 提示文字 |
+| 区域            | 功能                                                           |
+| --------------- | -------------------------------------------------------------- |
+| header          | 标题 + ⚙ 设置按钮                                              |
+| Step 1 获取笔记 | 获取全部笔记按钮 + 取消 + 状态文字                             |
+| noteCountBar    | 已捕获 N 条笔记 + 全选 checkbox（inline）                      |
+| noteList        | 笔记列表（最多显示 50 条，每条前有 checkbox）                  |
+| Step 2 导出     | 格式切换（ZIP/Vault）+ Vault 状态（inline）+ 统一导出按钮      |
+| progress        | 进度条                                                         |
+| advancedToggle  | 折叠的"高级选项"（扫描 Vue Store / 清空数据 / Discovery 模式） |
+| tip             | 提示文字                                                       |
 
 **popup.js 关键模块：**
 
-| 模块 | 说明 |
-|------|------|
-| `loadSettings(cb)` | 从 chrome.storage 加载设置，合并默认值 |
-| `MD` 对象 | Markdown 转换器 |
-| `MD.formatDate(dateStr)` | ISO 日期格式化（用于 frontmatter） |
-| `MD.formatDateShort(dateStr, fmt)` | 短日期格式化（用于文件名） |
-| `MD.frontmatter(note, settings)` | 生成 YAML frontmatter（按 frontmatterFields 开关） |
-| `MD.htmlToMd(html)` | HTML → Markdown 转换（正则替换） |
-| `MD.formatImage(img, index, settings)` | 根据 imageFormat 生成 `![]()` 或 `![[]]` |
-| `MD.convert(note, settings)` | 完整 Markdown 转换（frontmatter + 标题 + 正文 + 音频 + 图片） |
-| `MD.convertTranscript(note, settings)` | 生成 transcript 专用 Markdown |
-| `sanitize(name)` | 移除文件名非法字符，截断 100 字符 |
-| `getDateParts(note)` | 返回 `{ date, year, month }` |
-| `filename(note)` | 根据 filenameTemplate 生成文件名 |
-| `getFolderPrefix(note)` | 根据 folderMode 生成文件夹前缀 |
-| `fullPath(note)` | `getFolderPrefix + filename` 完整路径 |
-| `getNotesToExport()` | 返回选中笔记（无选中则返回全部） |
-| `refresh()` | 刷新笔记列表和统计 |
-| `initFormatToggle()` | 初始化 ZIP/Vault 格式切换按钮 |
-| `updateFormatToggleUI()` | 更新格式切换 UI + Vault 状态 |
-| `updateExportButtonText()` | 根据选中数量和格式更新导出按钮文字 |
-| `refreshVaultStatus()` | 刷新 Vault 连接状态（inline 显示） |
-| `exportToZip()` | ZIP 导出（含 transcript 获取逻辑） |
-| `exportToVault()` | Vault 导出（含 transcript 获取 + 分离文件写入） |
-| `fetchMissingTranscripts(notes, onProgress)` | 异步逐条获取缺少 rawTranscript 的语音笔记 |
+| 模块                                         | 说明                                                          |
+| -------------------------------------------- | ------------------------------------------------------------- |
+| `loadSettings(cb)`                           | 从 chrome.storage 加载设置，合并默认值                        |
+| `MD` 对象                                    | Markdown 转换器                                               |
+| `MD.formatDate(dateStr)`                     | ISO 日期格式化（用于 frontmatter）                            |
+| `MD.formatDateShort(dateStr, fmt)`           | 短日期格式化（用于文件名）                                    |
+| `MD.frontmatter(note, settings)`             | 生成 YAML frontmatter（按 frontmatterFields 开关）            |
+| `MD.htmlToMd(html)`                          | HTML → Markdown 转换（正则替换）                              |
+| `MD.formatImage(img, index, settings)`       | 根据 imageFormat 生成 `![]()` 或 `![[]]`                      |
+| `MD.convert(note, settings)`                 | 完整 Markdown 转换（frontmatter + 标题 + 正文 + 音频 + 图片） |
+| `MD.convertTranscript(note, settings)`       | 生成 transcript 专用 Markdown                                 |
+| `sanitize(name)`                             | 移除文件名非法字符，截断 100 字符                             |
+| `getDateParts(note)`                         | 返回 `{ date, year, month }`                                  |
+| `filename(note)`                             | 根据 filenameTemplate 生成文件名                              |
+| `getFolderPrefix(note)`                      | 根据 folderMode 生成文件夹前缀                                |
+| `fullPath(note)`                             | `getFolderPrefix + filename` 完整路径                         |
+| `getNotesToExport()`                         | 返回选中笔记（无选中则返回全部）                              |
+| `refresh()`                                  | 刷新笔记列表和统计                                            |
+| `initFormatToggle()`                         | 初始化 ZIP/Vault 格式切换按钮                                 |
+| `updateFormatToggleUI()`                     | 更新格式切换 UI + Vault 状态                                  |
+| `updateExportButtonText()`                   | 根据选中数量和格式更新导出按钮文字                            |
+| `refreshVaultStatus()`                       | 刷新 Vault 连接状态（inline 显示）                            |
+| `exportToZip()`                              | ZIP 导出（含 transcript 获取逻辑）                            |
+| `exportToVault()`                            | Vault 导出（含 transcript 获取 + 分离文件写入）               |
+| `fetchMissingTranscripts(notes, onProgress)` | 异步逐条获取缺少 rawTranscript 的语音笔记                     |
 
 **文件名模板变量：**
 
-| 变量 | 值 | 示例 |
-|------|----|------|
-| `{date}` | 按 dateFormat 格式化的日期 | `2026-01-11` |
-| `{title}` | 清洗后的标题 | `健康` |
-| `{id}` | 笔记 ID | `abc123` |
-| `{type}` | 笔记类型 | `voice` |
-| `{year}` | 年份 | `2026` |
-| `{month}` | 月份 (两位) | `01` |
+| 变量      | 值                         | 示例         |
+| --------- | -------------------------- | ------------ |
+| `{date}`  | 按 dateFormat 格式化的日期 | `2026-01-11` |
+| `{title}` | 清洗后的标题               | `健康`       |
+| `{id}`    | 笔记 ID                    | `abc123`     |
+| `{type}`  | 笔记类型                   | `voice`      |
+| `{year}`  | 年份                       | `2026`       |
+| `{month}` | 月份 (两位)                | `01`         |
 
 **文件夹前缀逻辑：**
+
 - 如果模板本身包含 `/`（如 `{date}/{title}`），folderMode 被忽略
 - `flat`: 无前缀
 - `byType`: `voice/` 或 `text/`
@@ -324,12 +328,14 @@ inject.js 和 background.js 都有 `normalizeNote()` 函数，将 API 返回的�
 - `byMonth`: `2026-01/`
 
 **Transcript 模式：**
+
 - `none`: 不生成额外内容
 - `separate`: 生成 `xxx-transcript.md` 独立文件，使用 `rawTranscript`（优先）或 `content`
 - `merged`: 在主文件末尾追加 `---` + `## 原始文字记录` + `rawTranscript`（优先）或 `content`
 - 导出前若有语音笔记缺少 `rawTranscript`，会异步逐条从 `/note/{id}/web` 获取
 
 **批量选择：**
+
 - `selectedIds` 对象追踪选中的笔记 ID
 - 全选 checkbox 支持 `indeterminate` 状态
 - 未选中任何笔记时导出全部
@@ -338,24 +344,24 @@ inject.js 和 background.js 都有 `normalizeNote()` 函数，将 API 返回的�
 
 从 popup.js 提取的公共代码，供 popup.js 和 notes.js 共同引用。所有导出为 `window.XXX` 全局变量。
 
-| 模块 | 说明 |
-|------|------|
-| `window.loadSettings(cb)` | 从 chrome.storage 加载设置，合并默认值 |
-| `window.MD` | Markdown 转换器（frontmatter/htmlToMd/convert/convertTranscript） |
-| `window.sanitize(name)` | 移除文件名非法字符 |
-| `window.getDateParts(note, settings)` | 返回 `{ date, year, month }` |
-| `window.filename(note, settings)` | 根据模板生成文件名 |
-| `window.getFolderPrefix(note, settings)` | 根据 folderMode 生成文件夹前缀 |
-| `window.fullPath(note, settings)` | 完整路径（前缀 + 文件名） |
-| `window.escapeHtml(str)` | HTML 实体编码 |
-| `window.ExportTracker` | 增量导出追踪（load/markExported/isExported/getNewCount/getNewNotes/clear） |
-| `window.ImageFetcher` | 图片获取工具（fetchAsArrayBuffer/fetchAsBase64，含内存缓存） |
-| `window.PDFConverter` | PDF 生成器（noteToHtml/generatePdf，使用 html2pdf.js） |
-| `window.DOCXConverter` | DOCX 生成器（generateDocx，使用 docx.js） |
-| `window.getFileExt(format)` | 获取文件扩展名 |
-| `window.fullPathWithFormat(note, settings, format)` | 带格式的完整路径 |
-| `window.deduplicateFilename(fn, used, ext)` | 文件名去重 |
-| `window.sortNotesByDate(arr)` | 按创建时间降序排序 |
+| 模块                                                | 说明                                                                       |
+| --------------------------------------------------- | -------------------------------------------------------------------------- |
+| `window.loadSettings(cb)`                           | 从 chrome.storage 加载设置，合并默认值                                     |
+| `window.MD`                                         | Markdown 转换器（frontmatter/htmlToMd/convert/convertTranscript）          |
+| `window.sanitize(name)`                             | 移除文件名非法字符                                                         |
+| `window.getDateParts(note, settings)`               | 返回 `{ date, year, month }`                                               |
+| `window.filename(note, settings)`                   | 根据模板生成文件名                                                         |
+| `window.getFolderPrefix(note, settings)`            | 根据 folderMode 生成文件夹前缀                                             |
+| `window.fullPath(note, settings)`                   | 完整路径（前缀 + 文件名）                                                  |
+| `window.escapeHtml(str)`                            | HTML 实体编码                                                              |
+| `window.ExportTracker`                              | 增量导出追踪（load/markExported/isExported/getNewCount/getNewNotes/clear） |
+| `window.ImageFetcher`                               | 图片获取工具（fetchAsArrayBuffer/fetchAsBase64，含内存缓存）               |
+| `window.PDFConverter`                               | PDF 生成器（noteToHtml/generatePdf，使用 html2pdf.js）                     |
+| `window.DOCXConverter`                              | DOCX 生成器（generateDocx，使用 docx.js）                                  |
+| `window.getFileExt(format)`                         | 获取文件扩展名                                                             |
+| `window.fullPathWithFormat(note, settings, format)` | 带格式的完整路径                                                           |
+| `window.deduplicateFilename(fn, used, ext)`         | 文件名去重                                                                 |
+| `window.sortNotesByDate(arr)`                       | 按创建时间降序排序                                                         |
 
 ### 5.7 notes.html + notes.js（笔记管理全页面）
 
@@ -363,19 +369,20 @@ inject.js 和 background.js 都有 `normalizeNote()` 函数，将 API 返回的�
 
 **功能：**
 
-| 功能 | 说明 |
-|------|------|
-| 文字搜索 | 按标题和标签实时筛选（200ms 防抖） |
-| 类型筛选 | 全部 / 语音 / 文字 / 链接 |
-| 日期筛选 | 起始日期 ~ 结束日期 |
-| 导出状态 | 全部 / 已导出 / 未导出 |
-| 排序 | 最新优先 / 最早优先 / 按标题 / 按类型 |
-| 分页 | 每页 50 条，底部翻页控件 |
-| 批量选择 | 全选影响所有筛选结果（不只当前页） |
-| 格式选择 | MD / PDF / DOCX |
-| 导出方式 | ZIP 下载 / 写入 Vault |
+| 功能     | 说明                                  |
+| -------- | ------------------------------------- |
+| 文字搜索 | 按标题和标签实时筛选（200ms 防抖）    |
+| 类型筛选 | 全部 / 语音 / 文字 / 链接             |
+| 日期筛选 | 起始日期 ~ 结束日期                   |
+| 导出状态 | 全部 / 已导出 / 未导出                |
+| 排序     | 最新优先 / 最早优先 / 按标题 / 按类型 |
+| 分页     | 每页 50 条，底部翻页控件              |
+| 批量选择 | 全选影响所有筛选结果（不只当前页）    |
+| 格式选择 | MD / PDF / DOCX                       |
+| 导出方式 | ZIP 下载 / 写入 Vault                 |
 
 **FilterEngine 对象：**
+
 - `searchText`, `noteType`, `dateFrom`, `dateTo`, `exportStatus`, `sortBy`
 - `apply(notes)` 返回筛选+排序后的数组
 
@@ -383,51 +390,52 @@ inject.js 和 background.js 都有 `normalizeNote()` 函数，将 API 返回的�
 
 **设置卡片：**
 
-| 卡片 | 设置项 |
-|------|--------|
-| 导出方式 | ZIP / Vault radio |
-| Vault 设置 | 文件夹选择、权限、子文件夹路径 |
-| 文件命名 | 5 个预设模板 radio + 自定义输入 + 日期格式 select |
-| 文字记录导出 | none / separate / merged radio |
-| 笔记分类 | flat / byType / byTag / byMonth radio |
-| 导出格式 | 8 个 frontmatter 字段 checkbox (2列) + 图片格式 radio |
-| 导出偏好 | 音频链接、图片、断句、标签前缀 |
-| 高级设置 | Discovery 模式、请求间隔、扫描深度 |
-| 保存/重置 | 保存按钮 + 恢复默认 |
+| 卡片         | 设置项                                                |
+| ------------ | ----------------------------------------------------- |
+| 导出方式     | ZIP / Vault radio                                     |
+| Vault 设置   | 文件夹选择、权限、子文件夹路径                        |
+| 文件命名     | 5 个预设模板 radio + 自定义输入 + 日期格式 select     |
+| 文字记录导出 | none / separate / merged radio                        |
+| 笔记分类     | flat / byType / byTag / byMonth radio                 |
+| 导出格式     | 8 个 frontmatter 字段 checkbox (2列) + 图片格式 radio |
+| 导出偏好     | 音频链接、图片、断句、标签前缀                        |
+| 高级设置     | Discovery 模式、请求间隔、扫描深度                    |
+| 保存/重置    | 保存按钮 + 恢复默认                                   |
 
 **options.js 关键函数：**
 
-| 函数 | 说明 |
-|------|------|
-| `initRadioGroup(groupId)` | 通用 radio 卡片点击 → `.selected` 样式切换 |
-| `setRadioGroupValue(name, value)` | 编程设置 radio 值 + UI |
-| `getRadioGroupValue(name)` | 读取当前选中的 radio 值 |
-| `getEffectiveFilenameTemplate()` | 返回实际模板（自定义时读取输入框） |
-| `updateFolderHint()` | 模板含 `/` 时禁用文件夹分类 + 显示提示 |
-| `getFrontmatterFields()` | 读取 8 个 checkbox 状态 → 对象 |
-| `setFrontmatterFields(fields)` | 设置 8 个 checkbox 状态 |
-| `loadSettings()` | 从 storage 加载 → 填充所有表单 |
-| `saveSettings()` | 收集所有表单值 → 写入 storage |
-| `resetSettings()` | 恢复默认值 |
+| 函数                              | 说明                                       |
+| --------------------------------- | ------------------------------------------ |
+| `initRadioGroup(groupId)`         | 通用 radio 卡片点击 → `.selected` 样式切换 |
+| `setRadioGroupValue(name, value)` | 编程设置 radio 值 + UI                     |
+| `getRadioGroupValue(name)`        | 读取当前选中的 radio 值                    |
+| `getEffectiveFilenameTemplate()`  | 返回实际模板（自定义时读取输入框）         |
+| `updateFolderHint()`              | 模板含 `/` 时禁用文件夹分类 + 显示提示     |
+| `getFrontmatterFields()`          | 读取 8 个 checkbox 状态 → 对象             |
+| `setFrontmatterFields(fields)`    | 设置 8 个 checkbox 状态                    |
+| `loadSettings()`                  | 从 storage 加载 → 填充所有表单             |
+| `saveSettings()`                  | 收集所有表单值 → 写入 storage              |
+| `resetSettings()`                 | 恢复默认值                                 |
 
 ### 5.7 vault-writer.js（203 行）
 
 File System Access API 封装。
 
-| 方法 | 说明 |
-|------|------|
-| `isSupported()` | 检查 `showDirectoryPicker` 是否存在 |
-| `pickDirectory()` | 弹出目录选择器，保存 handle 到 IndexedDB |
-| `restoreHandle()` | 从 IndexedDB 恢复 handle，检查权限 |
-| `requestPermission()` | 请求读写权限 |
-| `writeFile(dirHandle, filename, content)` | 写入单个文件 |
-| `writeAllNotes(notes, subfolder, converter, onProgress)` | 批量写入所有笔记 |
-| `clearHandle()` | 清除保存的 handle |
-| `getDirectoryName()` | 返回目录名 |
-| `isReady()` | handle 是否就绪 |
-| `needsPermission()` | 是否需要重新授权 |
+| 方法                                                     | 说明                                     |
+| -------------------------------------------------------- | ---------------------------------------- |
+| `isSupported()`                                          | 检查 `showDirectoryPicker` 是否存在      |
+| `pickDirectory()`                                        | 弹出目录选择器，保存 handle 到 IndexedDB |
+| `restoreHandle()`                                        | 从 IndexedDB 恢复 handle，检查权限       |
+| `requestPermission()`                                    | 请求读写权限                             |
+| `writeFile(dirHandle, filename, content)`                | 写入单个文件                             |
+| `writeAllNotes(notes, subfolder, converter, onProgress)` | 批量写入所有笔记                         |
+| `clearHandle()`                                          | 清除保存的 handle                        |
+| `getDirectoryName()`                                     | 返回目录名                               |
+| `isReady()`                                              | handle 是否就绪                          |
+| `needsPermission()`                                      | 是否需要重新授权                         |
 
 **IndexedDB 配置：**
+
 - 数据库名: `biji-exporter`
 - Store: `handles`
 - Key: `vaultDir`
@@ -461,14 +469,14 @@ GET https://get-notes.luojilab.com/voicenotes/web/notes
 
 ```markdown
 ---
-title: "健康"
+title: '健康'
 created: 2026-01-11T14:30:00
 modified: 2026-01-11T15:00:00
-source: "biji.com (Get笔记)"
+source: 'biji.com (Get笔记)'
 type: voice
 tags:
-  - "生活"
-biji_id: "abc123"
+  - '生活'
+biji_id: 'abc123'
 exported: 2026-02-09T10:00:00
 ---
 
@@ -479,9 +487,11 @@ exported: 2026-02-09T10:00:00
 主要内容是关于蛋白质的摄入量。
 
 ---
+
 **录音**: [收听](https://example.com/audio.mp3)
 
 ---
+
 ## 图片
 
 ![图片 1](https://example.com/img1.jpg)
@@ -531,13 +541,13 @@ inject.js 中 hook 了 `window.fetch`，但主动获取使用的是 hook 前保�
 
 ## 9. 浏览器兼容性
 
-| 特性 | Chrome 86+ | Firefox | Safari |
-|------|-----------|---------|--------|
-| 核心功能 | 完整 | 部分 | 部分 |
-| File System Access API | 支持 | 不支持 | 不支持 |
-| Vault 直写 | 支持 | 不可用 | 不可用 |
-| ZIP 导出 | 支持 | 支持 | 支持 |
-| IndexedDB | 支持 | 支持 | 支持 |
+| 特性                   | Chrome 86+ | Firefox | Safari |
+| ---------------------- | ---------- | ------- | ------ |
+| 核心功能               | 完整       | 部分    | 部分   |
+| File System Access API | 支持       | 不支持  | 不支持 |
+| Vault 直写             | 支持       | 不可用  | 不可用 |
+| ZIP 导出               | 支持       | 支持    | 支持   |
+| IndexedDB              | 支持       | 支持    | 支持   |
 
 ---
 

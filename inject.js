@@ -16,9 +16,11 @@
 
   // Send captured note data to content.js
   function postToExtension(type, payload) {
-    window.dispatchEvent(new CustomEvent('biji-ext-data', {
-      detail: JSON.stringify({ type, payload })
-    }));
+    window.dispatchEvent(
+      new CustomEvent('biji-ext-data', {
+        detail: JSON.stringify({ type, payload }),
+      })
+    );
   }
 
   // --- Normalize a raw note object ---
@@ -28,15 +30,40 @@
       id: raw.id || raw.noteId || raw.note_id || raw._id || '',
       title: raw.title || raw.name || raw.subject || '',
       content: raw.content || raw.text || raw.body || raw.html || raw.richText || '',
-      rawTranscript: raw.transcript || raw.rawText || raw.raw_text ||
-                     raw.voiceText || raw.voice_text || raw.asr || raw.asrText ||
-                     raw.asr_text || raw.originalText || raw.original_text ||
-                     raw.speechText || raw.speech_text || raw.rawContent || raw.raw_content ||
-                     null,
-      createdAt: raw.createdAt || raw.created_at || raw.createTime || raw.create_time ||
-                 raw.createdTime || raw.created || raw.ctime || '',
-      updatedAt: raw.updatedAt || raw.updated_at || raw.updateTime || raw.update_time ||
-                 raw.modifiedAt || raw.modified || raw.mtime || '',
+      rawTranscript:
+        raw.transcript ||
+        raw.rawText ||
+        raw.raw_text ||
+        raw.voiceText ||
+        raw.voice_text ||
+        raw.asr ||
+        raw.asrText ||
+        raw.asr_text ||
+        raw.originalText ||
+        raw.original_text ||
+        raw.speechText ||
+        raw.speech_text ||
+        raw.rawContent ||
+        raw.raw_content ||
+        null,
+      createdAt:
+        raw.createdAt ||
+        raw.created_at ||
+        raw.createTime ||
+        raw.create_time ||
+        raw.createdTime ||
+        raw.created ||
+        raw.ctime ||
+        '',
+      updatedAt:
+        raw.updatedAt ||
+        raw.updated_at ||
+        raw.updateTime ||
+        raw.update_time ||
+        raw.modifiedAt ||
+        raw.modified ||
+        raw.mtime ||
+        '',
       tags: raw.tags || raw.labels || raw.categories || [],
       noteType: raw.note_type || raw.noteType || raw.entry_type || null,
       type: raw.type || raw.note_type || raw.noteType || 'text',
@@ -54,8 +81,10 @@
     if (Array.isArray(obj) && obj.length > 0 && typeof obj[0] === 'object' && obj[0] !== null) {
       var f = obj[0];
       // Strict match: has ID + content/title
-      if ((f.id || f.noteId || f.note_id || f._id) &&
-          (f.content || f.title || f.text || f.body || f.name || f.subject || f.html || f.richText)) {
+      if (
+        (f.id || f.noteId || f.note_id || f._id) &&
+        (f.content || f.title || f.text || f.body || f.name || f.subject || f.html || f.richText)
+      ) {
         return obj;
       }
       // Relaxed match: large array where items have IDs
@@ -67,9 +96,22 @@
     }
 
     if (typeof obj === 'object' && !Array.isArray(obj)) {
-      var priorityKeys = ['notes', 'list', 'data', 'items', 'results', 'records',
-                          'noteList', 'note_list', 'entries', 'rows', 'content',
-                          'timeline', 'feeds', 'posts'];
+      var priorityKeys = [
+        'notes',
+        'list',
+        'data',
+        'items',
+        'results',
+        'records',
+        'noteList',
+        'note_list',
+        'entries',
+        'rows',
+        'content',
+        'timeline',
+        'feeds',
+        'posts',
+      ];
       var allKeys = Object.keys(obj);
       var sortedKeys = [];
       priorityKeys.forEach(function (pk) {
@@ -200,7 +242,10 @@
           if (appEl.__vue_app__) props.push('__vue_app__');
           if (appEl._vnode) props.push('_vnode');
           if (appEl.__vueParentComponent) props.push('__vueParentComponent');
-          log('App element has properties:', props.length > 0 ? props.join(', ') : 'none of the expected Vue properties');
+          log(
+            'App element has properties:',
+            props.length > 0 ? props.join(', ') : 'none of the expected Vue properties'
+          );
         }
         return results;
       }
@@ -263,134 +308,158 @@
   function fetchRawTranscript(noteId) {
     var url = 'https://www.biji.com/note/' + noteId + '/web';
     log('Fetching transcript from:', url);
-    return origFetch(url, { credentials: 'include' }).then(function (resp) {
-      if (!resp.ok) {
-        console.warn('[Biji Ext] /web page returned HTTP', resp.status);
-        return null;
-      }
-      return resp.text();
-    }).then(function (html) {
-      if (!html) return null;
-      log('/web page HTML length:', html.length);
-
-      // Try 1: extract from SSR state embedded in script tags
-      var statePatterns = [
-        /window\.__INITIAL_STATE__\s*=\s*(\{[\s\S]*?\});?\s*<\/script>/,
-        /window\.__NUXT__\s*=\s*(\{[\s\S]*?\});?\s*<\/script>/,
-        /window\.__APP_DATA__\s*=\s*(\{[\s\S]*?\});?\s*<\/script>/
-      ];
-      for (var p = 0; p < statePatterns.length; p++) {
-        var stateMatch = html.match(statePatterns[p]);
-        if (stateMatch) {
-          try {
-            var state = JSON.parse(stateMatch[1]);
-            var candidates = ['transcript', 'rawText', 'raw_text', 'voiceText',
-                              'voice_text', 'asr', 'asrText', 'asr_text',
-                              'originalText', 'original_text'];
-            function findText(obj, depth) {
-              if (depth > 6 || !obj || typeof obj !== 'object') return null;
-              for (var i = 0; i < candidates.length; i++) {
-                if (obj[candidates[i]] && typeof obj[candidates[i]] === 'string' &&
-                    obj[candidates[i]].length > 50) {
-                  return obj[candidates[i]];
-                }
-              }
-              var keys = Object.keys(obj);
-              for (var j = 0; j < keys.length; j++) {
-                var r = findText(obj[keys[j]], depth + 1);
-                if (r) return r;
-              }
-              return null;
-            }
-            var text = findText(state, 0);
-            if (text) {
-              log('Found transcript in SSR state, length:', text.length);
-              return text;
-            }
-          } catch (e) {
-            console.warn('[Biji Ext] Failed to parse SSR state:', e);
-          }
+    return origFetch(url, { credentials: 'include' })
+      .then(function (resp) {
+        if (!resp.ok) {
+          console.warn('[Biji Ext] /web page returned HTTP', resp.status);
+          return null;
         }
-      }
+        return resp.text();
+      })
+      .then(function (html) {
+        if (!html) return null;
+        log('/web page HTML length:', html.length);
 
-      // Try 2: parse HTML and extract from actual DOM structure
-      // /web page structure: .n-scrollbar-content > div > p[00:00:00]...
-      try {
-        var parser = new DOMParser();
-        var doc = parser.parseFromString(html, 'text/html');
-
-        // Selectors matching biji.com /web page structure (from Elements inspection)
-        var selectors = [
-          '.n-scrollbar-content',   // Naive UI scrollbar content (actual container)
-          '.web-html',              // web-html wrapper
-          '.web-detail',            // web-detail main area
-          '.note-web',              // note-web container
-          '.note-content-wrap',     // outer content wrapper
-          '.note-content',          // generic
-          '.transcript',
-          '.voice-content',
-          'article',
-          'main'
+        // Try 1: extract from SSR state embedded in script tags
+        var statePatterns = [
+          /window\.__INITIAL_STATE__\s*=\s*(\{[\s\S]*?\});?\s*<\/script>/,
+          /window\.__NUXT__\s*=\s*(\{[\s\S]*?\});?\s*<\/script>/,
+          /window\.__APP_DATA__\s*=\s*(\{[\s\S]*?\});?\s*<\/script>/,
         ];
-        for (var i = 0; i < selectors.length; i++) {
-          var el = doc.querySelector(selectors[i]);
-          if (el) {
-            // Check for timestamp-patterned paragraphs [00:00:00]
-            var paragraphs = el.querySelectorAll('p');
-            if (paragraphs.length > 0) {
-              var texts = [];
-              var hasTimestamp = false;
-              paragraphs.forEach(function (p) {
-                var t = p.textContent.trim();
-                if (t) {
-                  texts.push(t);
-                  if (/^\[?\d{2}:\d{2}:\d{2}\]?/.test(t)) hasTimestamp = true;
+        for (var p = 0; p < statePatterns.length; p++) {
+          var stateMatch = html.match(statePatterns[p]);
+          if (stateMatch) {
+            try {
+              var state = JSON.parse(stateMatch[1]);
+              var candidates = [
+                'transcript',
+                'rawText',
+                'raw_text',
+                'voiceText',
+                'voice_text',
+                'asr',
+                'asrText',
+                'asr_text',
+                'originalText',
+                'original_text',
+              ];
+              function findText(obj, depth) {
+                if (depth > 6 || !obj || typeof obj !== 'object') return null;
+                for (var i = 0; i < candidates.length; i++) {
+                  if (
+                    obj[candidates[i]] &&
+                    typeof obj[candidates[i]] === 'string' &&
+                    obj[candidates[i]].length > 50
+                  ) {
+                    return obj[candidates[i]];
+                  }
                 }
-              });
-              if (hasTimestamp && texts.length > 3) {
-                var result = texts.join('\n\n');
-                log('Found transcript via selector "' + selectors[i] +
-                    '", paragraphs:', texts.length, 'length:', result.length);
-                return result;
+                var keys = Object.keys(obj);
+                for (var j = 0; j < keys.length; j++) {
+                  var r = findText(obj[keys[j]], depth + 1);
+                  if (r) return r;
+                }
+                return null;
+              }
+              var text = findText(state, 0);
+              if (text) {
+                log('Found transcript in SSR state, length:', text.length);
+                return text;
+              }
+            } catch (e) {
+              console.warn('[Biji Ext] Failed to parse SSR state:', e);
+            }
+          }
+        }
+
+        // Try 2: parse HTML and extract from actual DOM structure
+        // /web page structure: .n-scrollbar-content > div > p[00:00:00]...
+        try {
+          var parser = new DOMParser();
+          var doc = parser.parseFromString(html, 'text/html');
+
+          // Selectors matching biji.com /web page structure (from Elements inspection)
+          var selectors = [
+            '.n-scrollbar-content', // Naive UI scrollbar content (actual container)
+            '.web-html', // web-html wrapper
+            '.web-detail', // web-detail main area
+            '.note-web', // note-web container
+            '.note-content-wrap', // outer content wrapper
+            '.note-content', // generic
+            '.transcript',
+            '.voice-content',
+            'article',
+            'main',
+          ];
+          for (var i = 0; i < selectors.length; i++) {
+            var el = doc.querySelector(selectors[i]);
+            if (el) {
+              // Check for timestamp-patterned paragraphs [00:00:00]
+              var paragraphs = el.querySelectorAll('p');
+              if (paragraphs.length > 0) {
+                var texts = [];
+                var hasTimestamp = false;
+                paragraphs.forEach(function (p) {
+                  var t = p.textContent.trim();
+                  if (t) {
+                    texts.push(t);
+                    if (/^\[?\d{2}:\d{2}:\d{2}\]?/.test(t)) hasTimestamp = true;
+                  }
+                });
+                if (hasTimestamp && texts.length > 3) {
+                  var result = texts.join('\n\n');
+                  log(
+                    'Found transcript via selector "' + selectors[i] + '", paragraphs:',
+                    texts.length,
+                    'length:',
+                    result.length
+                  );
+                  return result;
+                }
+              }
+              // Fallback: use full text content if substantial
+              var fullText = el.textContent.trim();
+              if (fullText.length > 100) {
+                log('Found content via selector "' + selectors[i] + '", length:', fullText.length);
+                return fullText;
               }
             }
-            // Fallback: use full text content if substantial
-            var fullText = el.textContent.trim();
-            if (fullText.length > 100) {
-              log('Found content via selector "' + selectors[i] +
-                  '", length:', fullText.length);
-              return fullText;
+          }
+
+          // Try 3: find any <p> tags with timestamp pattern anywhere in the page
+          var allP = doc.querySelectorAll('p');
+          var timestampTexts = [];
+          allP.forEach(function (p) {
+            var t = p.textContent.trim();
+            if (t && /^\[?\d{2}:\d{2}:\d{2}\]?/.test(t)) {
+              timestampTexts.push(t);
             }
+          });
+          if (timestampTexts.length > 3) {
+            var result = timestampTexts.join('\n\n');
+            log(
+              'Found transcript via timestamp <p> scan, count:',
+              timestampTexts.length,
+              'length:',
+              result.length
+            );
+            return result;
           }
+
+          log(
+            'No transcript found in /web page DOM. Body length:',
+            doc.body ? doc.body.textContent.length : 0
+          );
+        } catch (e) {
+          console.warn('[Biji Ext] Failed to parse /web page HTML:', e);
         }
 
-        // Try 3: find any <p> tags with timestamp pattern anywhere in the page
-        var allP = doc.querySelectorAll('p');
-        var timestampTexts = [];
-        allP.forEach(function (p) {
-          var t = p.textContent.trim();
-          if (t && /^\[?\d{2}:\d{2}:\d{2}\]?/.test(t)) {
-            timestampTexts.push(t);
-          }
-        });
-        if (timestampTexts.length > 3) {
-          var result = timestampTexts.join('\n\n');
-          log('Found transcript via timestamp <p> scan, count:',
-              timestampTexts.length, 'length:', result.length);
-          return result;
-        }
-
-        log('No transcript found in /web page DOM. Body length:',
-            doc.body ? doc.body.textContent.length : 0);
-      } catch (e) {
-        console.warn('[Biji Ext] Failed to parse /web page HTML:', e);
-      }
-
-      return null;
-    }).catch(function (e) {
-      console.warn('[Biji Ext] Failed to fetch /note/' + noteId + '/web:', e);
-      return null;
-    });
+        return null;
+      })
+      .catch(function (e) {
+        console.warn('[Biji Ext] Failed to fetch /note/' + noteId + '/web:', e);
+        return null;
+      });
   }
 
   // --- Listen for transcript fetch requests from content.js ---
@@ -399,9 +468,11 @@
       var data = JSON.parse(e.detail);
       var noteId = data.noteId;
       fetchRawTranscript(noteId).then(function (transcript) {
-        window.dispatchEvent(new CustomEvent('biji-ext-transcript-result', {
-          detail: JSON.stringify({ noteId: noteId, transcript: transcript })
-        }));
+        window.dispatchEvent(
+          new CustomEvent('biji-ext-transcript-result', {
+            detail: JSON.stringify({ noteId: noteId, transcript: transcript }),
+          })
+        );
       });
     } catch (err) {
       console.error('[Biji Ext] Transcript fetch event error:', err);
@@ -412,9 +483,11 @@
   window.addEventListener('biji-ext-scan-request', function () {
     log('Manual scan requested from popup');
     var notes = scanVueStore();
-    window.dispatchEvent(new CustomEvent('biji-ext-scan-result', {
-      detail: JSON.stringify({ notes: notes })
-    }));
+    window.dispatchEvent(
+      new CustomEvent('biji-ext-scan-result', {
+        detail: JSON.stringify({ notes: notes }),
+      })
+    );
   });
 
   // ============================================================
@@ -450,7 +523,7 @@
       log('Raw note fields:', JSON.stringify(fieldInfo, null, 2));
       postToExtension('discovery', {
         url: url + ' [field-discovery]',
-        preview: 'Fields: ' + Object.keys(first).join(', ')
+        preview: 'Fields: ' + Object.keys(first).join(', '),
       });
 
       var normalized = notes.map(normalizeNote);
@@ -503,15 +576,17 @@
   // --- Hook fetch ---
   var origFetch = window.fetch;
   window.fetch = function (input, init) {
-    var url = typeof input === 'string' ? input
-      : (input instanceof Request ? input.url : String(input));
+    var url =
+      typeof input === 'string' ? input : input instanceof Request ? input.url : String(input);
 
     // Capture auth headers from real API requests to get-notes.luojilab.com
     if (url.indexOf('get-notes.luojilab.com') !== -1) {
       var capturedHeaders = {};
       if (init && init.headers) {
         if (init.headers instanceof Headers) {
-          init.headers.forEach(function (v, k) { capturedHeaders[k] = v; });
+          init.headers.forEach(function (v, k) {
+            capturedHeaders[k] = v;
+          });
         } else if (typeof init.headers === 'object') {
           Object.keys(init.headers).forEach(function (k) {
             capturedHeaders[k] = init.headers[k];
@@ -530,13 +605,19 @@
     }
 
     var promise = origFetch.call(window, input, init);
-    promise.then(function (response) {
-      if (response.ok) {
-        response.clone().text().then(function (text) {
-          processResponse(url, text);
-        }).catch(function () {}); // Ignore clone read failure (non-text response)
-      }
-    }).catch(function () {}); // Ignore network errors in interceptor (non-critical)
+    promise
+      .then(function (response) {
+        if (response.ok) {
+          response
+            .clone()
+            .text()
+            .then(function (text) {
+              processResponse(url, text);
+            })
+            .catch(function () {}); // Ignore clone read failure (non-text response)
+        }
+      })
+      .catch(function () {}); // Ignore network errors in interceptor (non-critical)
     return promise;
   };
 

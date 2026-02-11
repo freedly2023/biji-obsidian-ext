@@ -93,7 +93,14 @@
     var count = getSelectedCount();
     var methodLabel = activeExportFormat === 'vault' ? 'Vault' : 'ZIP';
     var formats = ExportEngine.getActiveFormats(activeFileFormats);
-    var fmtLabel = formats.length > 0 ? formats.map(function (f) { return f.toUpperCase(); }).join('+') : 'MD';
+    var fmtLabel =
+      formats.length > 0
+        ? formats
+            .map(function (f) {
+              return f.toUpperCase();
+            })
+            .join('+')
+        : 'MD';
     var suffix = fmtLabel + ' / ' + methodLabel;
     if (count > 0) {
       btnExport.textContent = '\u5BFC\u51FA ' + count + ' \u6761\u7B14\u8BB0 (' + suffix + ')';
@@ -105,7 +112,9 @@
   function getNotesToExport() {
     var count = getSelectedCount();
     if (count === 0) return allNotes;
-    return allNotes.filter(function (n) { return selectedIds[n.id]; });
+    return allNotes.filter(function (n) {
+      return selectedIds[n.id];
+    });
   }
 
   // --- File format toggle (MD / PDF / DOCX) — multi-select ---
@@ -181,21 +190,24 @@
       return;
     }
 
-    VaultWriter.restoreHandle().then(function (handle) {
-      if (handle) {
-        vaultDot.style.background = '#28a745';
-        vaultLabel.textContent = 'Vault: ' + VaultWriter.getDirectoryName();
-      } else if (VaultWriter.needsPermission()) {
-        vaultDot.style.background = '#ffc107';
-        vaultLabel.textContent = 'Vault: \u9700\u8981\u6388\u6743 (' + VaultWriter.getDirectoryName() + ')';
-      } else {
+    VaultWriter.restoreHandle()
+      .then(function (handle) {
+        if (handle) {
+          vaultDot.style.background = '#28a745';
+          vaultLabel.textContent = 'Vault: ' + VaultWriter.getDirectoryName();
+        } else if (VaultWriter.needsPermission()) {
+          vaultDot.style.background = '#ffc107';
+          vaultLabel.textContent =
+            'Vault: \u9700\u8981\u6388\u6743 (' + VaultWriter.getDirectoryName() + ')';
+        } else {
+          vaultDot.style.background = '#dc3545';
+          vaultLabel.textContent = 'Vault: \u672A\u914D\u7F6E\uFF0C\u8BF7\u6253\u5F00\u8BBE\u7F6E';
+        }
+      })
+      .catch(function () {
         vaultDot.style.background = '#dc3545';
-        vaultLabel.textContent = 'Vault: \u672A\u914D\u7F6E\uFF0C\u8BF7\u6253\u5F00\u8BBE\u7F6E';
-      }
-    }).catch(function () {
-      vaultDot.style.background = '#dc3545';
-      vaultLabel.textContent = 'Vault: \u672A\u914D\u7F6E';
-    });
+        vaultLabel.textContent = 'Vault: \u672A\u914D\u7F6E';
+      });
   }
 
   // --- Advanced toggle ---
@@ -232,26 +244,42 @@
       if (arr.length === 0) {
         noteCountBar.style.display = 'none';
         if (btnManageAll) btnManageAll.style.display = 'none';
-        noteListEl.innerHTML = '<div style="padding:14px;text-align:center;color:#999">' +
+        noteListEl.innerHTML =
+          '<div style="padding:14px;text-align:center;color:#999">' +
           '\u6682\u65E0\u6355\u83B7\u7684\u7B14\u8BB0<br>\u8BF7\u5148\u6253\u5F00 biji.com \u6D4F\u89C8\u7B14\u8BB0</div>';
       } else {
         noteCountBar.style.display = 'flex';
         if (btnManageAll) btnManageAll.style.display = '';
-        var html = arr.slice(0, 50).map(function (n) {
-          var t = n.title || ('Note ' + n.id);
-          var d = MD.formatDate(n.createdAt);
-          var ds = d ? d.substring(0, 10) : '';
-          var checked = selectedIds[n.id] ? ' checked' : '';
-          var dot = ExportTracker.isExported(n.id) ? '' : '<span class="new-dot">\u25CF</span>';
-          return '<div class="note-item">' +
-            '<input type="checkbox" data-id="' + escapeHtml(String(n.id)) + '"' + checked + '>' +
-            dot +
-            '<span class="title">' + escapeHtml(t) +
-            '</span><span class="date">' + ds + '</span></div>';
-        }).join('');
+        var html = arr
+          .slice(0, 50)
+          .map(function (n) {
+            var t = n.title || 'Note ' + n.id;
+            var d = MD.formatDate(n.createdAt);
+            var ds = d ? d.substring(0, 10) : '';
+            var checked = selectedIds[n.id] ? ' checked' : '';
+            var dot = ExportTracker.isExported(n.id) ? '' : '<span class="new-dot">\u25CF</span>';
+            return (
+              '<div class="note-item">' +
+              '<input type="checkbox" data-id="' +
+              escapeHtml(String(n.id)) +
+              '"' +
+              checked +
+              '>' +
+              dot +
+              '<span class="title">' +
+              escapeHtml(t) +
+              '</span><span class="date">' +
+              ds +
+              '</span></div>'
+            );
+          })
+          .join('');
         if (arr.length > 50) {
-          html += '<div style="padding:8px;text-align:center;color:#999;font-size:11px">' +
-            '...\u8FD8\u6709 ' + (arr.length - 50) + ' \u6761</div>';
+          html +=
+            '<div style="padding:8px;text-align:center;color:#999;font-size:11px">' +
+            '...\u8FD8\u6709 ' +
+            (arr.length - 50) +
+            ' \u6761</div>';
         }
         noteListEl.innerHTML = html;
 
@@ -277,7 +305,9 @@
       var checked = this.checked;
       selectedIds = {};
       if (checked) {
-        allNotes.forEach(function (n) { selectedIds[n.id] = true; });
+        allNotes.forEach(function (n) {
+          selectedIds[n.id] = true;
+        });
       }
       noteListEl.querySelectorAll('input[type="checkbox"]').forEach(function (cb) {
         cb.checked = checked;
@@ -290,9 +320,14 @@
   if (btnExportNew) {
     btnExportNew.addEventListener('click', function () {
       var newNotes = ExportTracker.getNewNotes(allNotes);
-      if (newNotes.length === 0) { alert('\u6CA1\u6709\u65B0\u589E\u7B14\u8BB0\u3002'); return; }
+      if (newNotes.length === 0) {
+        alert('\u6CA1\u6709\u65B0\u589E\u7B14\u8BB0\u3002');
+        return;
+      }
       selectedIds = {};
-      newNotes.forEach(function (n) { selectedIds[n.id] = true; });
+      newNotes.forEach(function (n) {
+        selectedIds[n.id] = true;
+      });
       noteListEl.querySelectorAll('input[type="checkbox"]').forEach(function (cb) {
         cb.checked = !!selectedIds[cb.getAttribute('data-id')];
       });
@@ -308,8 +343,15 @@
   // --- Clear export record ---
   if (btnClearExport) {
     btnClearExport.addEventListener('click', function () {
-      if (!confirm('\u786E\u5B9A\u8981\u6E05\u9664\u5BFC\u51FA\u8BB0\u5F55\u5417\uFF1F\u6240\u6709\u7B14\u8BB0\u5C06\u663E\u793A\u4E3A\u201C\u672A\u5BFC\u51FA\u201D\u3002')) return;
-      ExportTracker.clear(function () { refresh(); });
+      if (
+        !confirm(
+          '\u786E\u5B9A\u8981\u6E05\u9664\u5BFC\u51FA\u8BB0\u5F55\u5417\uFF1F\u6240\u6709\u7B14\u8BB0\u5C06\u663E\u793A\u4E3A\u201C\u672A\u5BFC\u51FA\u201D\u3002'
+        )
+      )
+        return;
+      ExportTracker.clear(function () {
+        refresh();
+      });
     });
   }
 
@@ -334,7 +376,9 @@
     loadSettingsLocal(function (settings) {
       var notes = getNotesToExport();
       if (notes.length === 0) {
-        alert('\u6682\u65E0\u7B14\u8BB0\u53EF\u5BFC\u51FA\u3002\u8BF7\u5148\u6253\u5F00 biji.com \u6D4F\u89C8\u7B14\u8BB0\u3002');
+        alert(
+          '\u6682\u65E0\u7B14\u8BB0\u53EF\u5BFC\u51FA\u3002\u8BF7\u5148\u6253\u5F00 biji.com \u6D4F\u89C8\u7B14\u8BB0\u3002'
+        );
         return;
       }
 
@@ -344,47 +388,62 @@
       progressEl.classList.add('active');
       btnExport.disabled = true;
 
-      var needTranscripts = settings.transcriptMode !== 'none' &&
-        notes.some(function (n) { return !n.rawTranscript; });
+      var needTranscripts =
+        settings.transcriptMode !== 'none' &&
+        notes.some(function (n) {
+          return !n.rawTranscript;
+        });
 
       var chain = Promise.resolve();
       if (needTranscripts) {
         ptxtEl.textContent = '\u6B63\u5728\u83B7\u53D6\u539F\u59CB\u6587\u5B57\u8BB0\u5F55...';
         chain = ExportEngine.fetchMissingTranscripts(notes, function (done, total) {
-          ptxtEl.textContent = '\u6B63\u5728\u83B7\u53D6\u6587\u5B57\u8BB0\u5F55 ' + done + '/' + total + '...';
+          ptxtEl.textContent =
+            '\u6B63\u5728\u83B7\u53D6\u6587\u5B57\u8BB0\u5F55 ' + done + '/' + total + '...';
         });
       }
 
-      chain.then(function () {
-        var hasNonMd = formats.indexOf('pdf') !== -1 || formats.indexOf('docx') !== -1;
-        if (hasNonMd && notes.length > 20) {
-          ptxtEl.textContent = 'PDF/DOCX \u751F\u6210\u8F83\u6162\uFF0C\u8BF7\u8010\u5FC3\u7B49\u5F85...';
-        }
+      chain
+        .then(function () {
+          var hasNonMd = formats.indexOf('pdf') !== -1 || formats.indexOf('docx') !== -1;
+          if (hasNonMd && notes.length > 20) {
+            ptxtEl.textContent =
+              'PDF/DOCX \u751F\u6210\u8F83\u6162\uFF0C\u8BF7\u8010\u5FC3\u7B49\u5F85...';
+          }
 
-        return ExportEngine.zipExport(notes, settings, formats, function (done, total) {
-          var pct = Math.round((done / total) * 100);
-          pfillEl.style.width = pct + '%';
-          ptxtEl.textContent = done + ' / ' + total + ' \u7B14\u8BB0\u5DF2\u5904\u7406';
+          return ExportEngine.zipExport(notes, settings, formats, function (done, total) {
+            var pct = Math.round((done / total) * 100);
+            pfillEl.style.width = pct + '%';
+            ptxtEl.textContent = done + ' / ' + total + ' \u7B14\u8BB0\u5DF2\u5904\u7406';
+          });
+        })
+        .then(function () {
+          ptxtEl.textContent =
+            '\u5BFC\u51FA\u5B8C\u6210\uFF01\u8BF7\u67E5\u770B\u4E0B\u8F7D\u6587\u4EF6\u5939\u3002';
+          btnExport.disabled = false;
+          setTimeout(function () {
+            progressEl.classList.remove('active');
+            refresh();
+          }, 3000);
         });
-      }).then(function () {
-        ptxtEl.textContent = '\u5BFC\u51FA\u5B8C\u6210\uFF01\u8BF7\u67E5\u770B\u4E0B\u8F7D\u6587\u4EF6\u5939\u3002';
-        btnExport.disabled = false;
-        setTimeout(function () { progressEl.classList.remove('active'); refresh(); }, 3000);
-      });
     });
   }
 
   // --- Export to Vault (MD only) ---
   function exportToVault() {
     if (typeof VaultWriter === 'undefined' || !VaultWriter.isReady()) {
-      alert('Vault \u672A\u5C31\u7EEA\u3002\u8BF7\u5148\u5728\u8BBE\u7F6E\u9875\u9762\u9009\u62E9 Vault \u6587\u4EF6\u5939\u3002');
+      alert(
+        'Vault \u672A\u5C31\u7EEA\u3002\u8BF7\u5148\u5728\u8BBE\u7F6E\u9875\u9762\u9009\u62E9 Vault \u6587\u4EF6\u5939\u3002'
+      );
       return;
     }
 
     loadSettingsLocal(function (settings) {
       var notes = getNotesToExport();
       if (notes.length === 0) {
-        alert('\u6682\u65E0\u7B14\u8BB0\u53EF\u5BFC\u51FA\u3002\u8BF7\u5148\u6253\u5F00 biji.com \u6D4F\u89C8\u7B14\u8BB0\u3002');
+        alert(
+          '\u6682\u65E0\u7B14\u8BB0\u53EF\u5BFC\u51FA\u3002\u8BF7\u5148\u6253\u5F00 biji.com \u6D4F\u89C8\u7B14\u8BB0\u3002'
+        );
         return;
       }
 
@@ -392,39 +451,70 @@
       btnExport.disabled = true;
       btnExport.textContent = '\u5BFC\u51FA\u4E2D...';
 
-      var needTranscripts = settings.transcriptMode !== 'none' &&
-        notes.some(function (n) { return !n.rawTranscript; });
+      var needTranscripts =
+        settings.transcriptMode !== 'none' &&
+        notes.some(function (n) {
+          return !n.rawTranscript;
+        });
 
       var chain = Promise.resolve();
       if (needTranscripts) {
         ptxtEl.textContent = '\u6B63\u5728\u83B7\u53D6\u539F\u59CB\u6587\u5B57\u8BB0\u5F55...';
         chain = ExportEngine.fetchMissingTranscripts(notes, function (done, total) {
-          ptxtEl.textContent = '\u6B63\u5728\u83B7\u53D6\u6587\u5B57\u8BB0\u5F55 ' + done + '/' + total + '...';
+          ptxtEl.textContent =
+            '\u6B63\u5728\u83B7\u53D6\u6587\u5B57\u8BB0\u5F55 ' + done + '/' + total + '...';
         });
       }
 
-      chain.then(function () {
-        return ExportEngine.vaultExport(notes, settings, function (done, total, written, errorCount) {
-          var pct = Math.round((done / total) * 100);
-          pfillEl.style.width = pct + '%';
-          ptxtEl.textContent = done + ' / ' + total + ' \u5DF2\u5904\u7406 (' + written + ' \u5199\u5165, ' + errorCount + ' \u9519\u8BEF)';
+      chain
+        .then(function () {
+          return ExportEngine.vaultExport(
+            notes,
+            settings,
+            function (done, total, written, errorCount) {
+              var pct = Math.round((done / total) * 100);
+              pfillEl.style.width = pct + '%';
+              ptxtEl.textContent =
+                done +
+                ' / ' +
+                total +
+                ' \u5DF2\u5904\u7406 (' +
+                written +
+                ' \u5199\u5165, ' +
+                errorCount +
+                ' \u9519\u8BEF)';
+            }
+          );
+        })
+        .then(function (result) {
+          ExportTracker.markExported(
+            notes.map(function (n) {
+              return n.id;
+            })
+          );
+          ptxtEl.textContent =
+            '\u5BFC\u51FA\u5B8C\u6210\uFF01' +
+            result.written +
+            ' \u7BC7\u7B14\u8BB0\u5DF2\u5199\u5165 Vault\u3002';
+          if (result.errors.length > 0) {
+            ptxtEl.textContent += ' (' + result.errors.length + ' \u4E2A\u9519\u8BEF)';
+            console.warn('[Biji Ext] Vault write errors:', result.errors);
+          }
+          btnExport.disabled = false;
+          updateExportButtonText();
+          setTimeout(function () {
+            progressEl.classList.remove('active');
+            refresh();
+          }, 4000);
+        })
+        .catch(function (err) {
+          ptxtEl.textContent = '\u5BFC\u51FA\u5931\u8D25: ' + err.message;
+          btnExport.disabled = false;
+          updateExportButtonText();
+          setTimeout(function () {
+            progressEl.classList.remove('active');
+          }, 4000);
         });
-      }).then(function (result) {
-        ExportTracker.markExported(notes.map(function (n) { return n.id; }));
-        ptxtEl.textContent = '\u5BFC\u51FA\u5B8C\u6210\uFF01' + result.written + ' \u7BC7\u7B14\u8BB0\u5DF2\u5199\u5165 Vault\u3002';
-        if (result.errors.length > 0) {
-          ptxtEl.textContent += ' (' + result.errors.length + ' \u4E2A\u9519\u8BEF)';
-          console.warn('[Biji Ext] Vault write errors:', result.errors);
-        }
-        btnExport.disabled = false;
-        updateExportButtonText();
-        setTimeout(function () { progressEl.classList.remove('active'); refresh(); }, 4000);
-      }).catch(function (err) {
-        ptxtEl.textContent = '\u5BFC\u51FA\u5931\u8D25: ' + err.message;
-        btnExport.disabled = false;
-        updateExportButtonText();
-        setTimeout(function () { progressEl.classList.remove('active'); }, 4000);
-      });
     });
   }
 
@@ -434,7 +524,9 @@
       if (!tabs[0]) return;
       chrome.tabs.sendMessage(tabs[0].id, { type: 'scanVueStore' }, function (res) {
         if (chrome.runtime.lastError) {
-          alert('\u65E0\u6CD5\u8FDE\u63A5\u5230 biji.com \u9875\u9762\u3002\u8BF7\u786E\u4FDD\u5F53\u524D\u6807\u7B7E\u9875\u662F biji.com\u3002');
+          alert(
+            '\u65E0\u6CD5\u8FDE\u63A5\u5230 biji.com \u9875\u9762\u3002\u8BF7\u786E\u4FDD\u5F53\u524D\u6807\u7B7E\u9875\u662F biji.com\u3002'
+          );
           return;
         }
         var notes = res && res.notes ? res.notes : [];
@@ -442,14 +534,23 @@
           chrome.runtime.sendMessage({ type: 'storeVueNotes', notes: notes });
           setTimeout(refresh, 500);
         }
-        alert('Vue Store \u626B\u63CF\u5B8C\u6210\uFF0C\u53D1\u73B0 ' + notes.length + ' \u6761\u7B14\u8BB0\u3002');
+        alert(
+          'Vue Store \u626B\u63CF\u5B8C\u6210\uFF0C\u53D1\u73B0 ' +
+            notes.length +
+            ' \u6761\u7B14\u8BB0\u3002'
+        );
       });
     });
   });
 
   // --- Clear data ---
   btnClear.addEventListener('click', function () {
-    if (!confirm('\u786E\u5B9A\u8981\u6E05\u7A7A\u6240\u6709\u5DF2\u6355\u83B7\u7684\u7B14\u8BB0\u6570\u636E\u5417\uFF1F')) return;
+    if (
+      !confirm(
+        '\u786E\u5B9A\u8981\u6E05\u7A7A\u6240\u6709\u5DF2\u6355\u83B7\u7684\u7B14\u8BB0\u6570\u636E\u5417\uFF1F'
+      )
+    )
+      return;
     chrome.runtime.sendMessage({ type: 'clearNotes' }, function () {
       chrome.runtime.sendMessage({ type: 'clearDiscovery' }, function () {
         selectedIds = {};
@@ -480,7 +581,7 @@
 
         chrome.runtime.sendMessage({
           type: 'fetchAll',
-          fetchDelay: fetchDelay
+          fetchDelay: fetchDelay,
         });
       });
     });

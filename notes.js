@@ -55,9 +55,12 @@
         var q = self.searchText.toLowerCase();
         result = result.filter(function (n) {
           var title = (n.title || '').toLowerCase();
-          var tags = (n.tags || []).map(function (t) {
-            return typeof t === 'string' ? t : (t.name || t.label || '');
-          }).join(' ').toLowerCase();
+          var tags = (n.tags || [])
+            .map(function (t) {
+              return typeof t === 'string' ? t : t.name || t.label || '';
+            })
+            .join(' ')
+            .toLowerCase();
           return title.indexOf(q) !== -1 || tags.indexOf(q) !== -1;
         });
       }
@@ -73,36 +76,52 @@
       if (self.dateFrom) {
         var fromTs = new Date(self.dateFrom).getTime();
         result = result.filter(function (n) {
-          var ts = n.createdAt ? new Date(typeof n.createdAt === 'number' ? n.createdAt * 1000 : n.createdAt).getTime() : 0;
+          var ts = n.createdAt
+            ? new Date(typeof n.createdAt === 'number' ? n.createdAt * 1000 : n.createdAt).getTime()
+            : 0;
           return ts >= fromTs;
         });
       }
       if (self.dateTo) {
         var toTs = new Date(self.dateTo).getTime() + 86400000; // end of day
         result = result.filter(function (n) {
-          var ts = n.createdAt ? new Date(typeof n.createdAt === 'number' ? n.createdAt * 1000 : n.createdAt).getTime() : 0;
+          var ts = n.createdAt
+            ? new Date(typeof n.createdAt === 'number' ? n.createdAt * 1000 : n.createdAt).getTime()
+            : 0;
           return ts < toTs;
         });
       }
 
       // Export status
       if (self.exportStatus === 'exported') {
-        result = result.filter(function (n) { return ExportTracker.isExported(n.id); });
+        result = result.filter(function (n) {
+          return ExportTracker.isExported(n.id);
+        });
       } else if (self.exportStatus === 'unexported') {
-        result = result.filter(function (n) { return !ExportTracker.isExported(n.id); });
+        result = result.filter(function (n) {
+          return !ExportTracker.isExported(n.id);
+        });
       }
 
       // Sort
       if (self.sortBy === 'date_desc') {
         result.sort(function (a, b) {
-          var tA = a.createdAt ? new Date(typeof a.createdAt === 'number' ? a.createdAt * 1000 : a.createdAt).getTime() : 0;
-          var tB = b.createdAt ? new Date(typeof b.createdAt === 'number' ? b.createdAt * 1000 : b.createdAt).getTime() : 0;
+          var tA = a.createdAt
+            ? new Date(typeof a.createdAt === 'number' ? a.createdAt * 1000 : a.createdAt).getTime()
+            : 0;
+          var tB = b.createdAt
+            ? new Date(typeof b.createdAt === 'number' ? b.createdAt * 1000 : b.createdAt).getTime()
+            : 0;
           return tB - tA;
         });
       } else if (self.sortBy === 'date_asc') {
         result.sort(function (a, b) {
-          var tA = a.createdAt ? new Date(typeof a.createdAt === 'number' ? a.createdAt * 1000 : a.createdAt).getTime() : 0;
-          var tB = b.createdAt ? new Date(typeof b.createdAt === 'number' ? b.createdAt * 1000 : b.createdAt).getTime() : 0;
+          var tA = a.createdAt
+            ? new Date(typeof a.createdAt === 'number' ? a.createdAt * 1000 : a.createdAt).getTime()
+            : 0;
+          var tB = b.createdAt
+            ? new Date(typeof b.createdAt === 'number' ? b.createdAt * 1000 : b.createdAt).getTime()
+            : 0;
           return tA - tB;
         });
       } else if (self.sortBy === 'title') {
@@ -116,7 +135,7 @@
       }
 
       return result;
-    }
+    },
   };
 
   // --- Render ---
@@ -138,34 +157,69 @@
       emptyState.style.display = 'none';
     }
 
-    var html = pageNotes.map(function (n) {
-      var t = n.title || ('Note ' + n.id);
-      var d = MD.formatDate(n.createdAt);
-      var ds = d ? d.substring(0, 10) : '';
-      var checked = selectedIds[n.id] ? ' checked' : '';
-      var type = n.type || 'text';
-      var typeCls = type === 'voice' ? 'voice' : (type === 'link' ? 'link' : (type === 'text' ? 'text' : 'other'));
-      var typeLabel = type === 'voice' ? '语音' : (type === 'link' ? '链接' : (type === 'text' ? '文字' : type));
-      var exported = ExportTracker.isExported(n.id);
-      var statusHtml = exported
-        ? '<span class="export-status exported">\u2713</span>'
-        : '<span class="export-status new">\u25CF</span>';
-      var tags = MD.formatTags(n.tags);
-      var tagsHtml = tags.length > 0
-        ? '<div class="tag-list">' + tags.slice(0, 3).map(function (tag) {
-            return '<span class="tag-chip">' + escapeHtml(tag) + '</span>';
-          }).join('') + (tags.length > 3 ? '<span class="tag-chip">+' + (tags.length - 3) + '</span>' : '') + '</div>'
-        : '';
+    var html = pageNotes
+      .map(function (n) {
+        var t = n.title || 'Note ' + n.id;
+        var d = MD.formatDate(n.createdAt);
+        var ds = d ? d.substring(0, 10) : '';
+        var checked = selectedIds[n.id] ? ' checked' : '';
+        var type = n.type || 'text';
+        var typeCls =
+          type === 'voice'
+            ? 'voice'
+            : type === 'link'
+              ? 'link'
+              : type === 'text'
+                ? 'text'
+                : 'other';
+        var typeLabel =
+          type === 'voice' ? '语音' : type === 'link' ? '链接' : type === 'text' ? '文字' : type;
+        var exported = ExportTracker.isExported(n.id);
+        var statusHtml = exported
+          ? '<span class="export-status exported">\u2713</span>'
+          : '<span class="export-status new">\u25CF</span>';
+        var tags = MD.formatTags(n.tags);
+        var tagsHtml =
+          tags.length > 0
+            ? '<div class="tag-list">' +
+              tags
+                .slice(0, 3)
+                .map(function (tag) {
+                  return '<span class="tag-chip">' + escapeHtml(tag) + '</span>';
+                })
+                .join('') +
+              (tags.length > 3 ? '<span class="tag-chip">+' + (tags.length - 3) + '</span>' : '') +
+              '</div>'
+            : '';
 
-      return '<tr>' +
-        '<td><input type="checkbox" data-id="' + escapeHtml(String(n.id)) + '"' + checked + '></td>' +
-        '<td>' + statusHtml + '</td>' +
-        '<td class="note-title-cell">' + escapeHtml(t) + '</td>' +
-        '<td><span class="type-badge ' + typeCls + '">' + typeLabel + '</span></td>' +
-        '<td style="font-size:12px;color:#888">' + ds + '</td>' +
-        '<td>' + tagsHtml + '</td>' +
-        '</tr>';
-    }).join('');
+        return (
+          '<tr>' +
+          '<td><input type="checkbox" data-id="' +
+          escapeHtml(String(n.id)) +
+          '"' +
+          checked +
+          '></td>' +
+          '<td>' +
+          statusHtml +
+          '</td>' +
+          '<td class="note-title-cell">' +
+          escapeHtml(t) +
+          '</td>' +
+          '<td><span class="type-badge ' +
+          typeCls +
+          '">' +
+          typeLabel +
+          '</span></td>' +
+          '<td style="font-size:12px;color:#888">' +
+          ds +
+          '</td>' +
+          '<td>' +
+          tagsHtml +
+          '</td>' +
+          '</tr>'
+        );
+      })
+      .join('');
 
     noteTableBody.innerHTML = html;
 
@@ -196,8 +250,12 @@
 
     // Select all checkbox state
     if (filteredNotes.length > 0) {
-      var allSelected = filteredNotes.every(function (n) { return selectedIds[n.id]; });
-      var someSelected = filteredNotes.some(function (n) { return selectedIds[n.id]; });
+      var allSelected = filteredNotes.every(function (n) {
+        return selectedIds[n.id];
+      });
+      var someSelected = filteredNotes.some(function (n) {
+        return selectedIds[n.id];
+      });
       selectAllEl.checked = allSelected;
       selectAllEl.indeterminate = someSelected && !allSelected;
     } else {
@@ -207,7 +265,14 @@
 
     // Export button text
     var formats = ExportEngine.getActiveFormats(activeFileFormats);
-    var fmtLabel = formats.length > 0 ? formats.map(function (f) { return f.toUpperCase(); }).join('+') : 'MD';
+    var fmtLabel =
+      formats.length > 0
+        ? formats
+            .map(function (f) {
+              return f.toUpperCase();
+            })
+            .join('+')
+        : 'MD';
     if (count > 0) {
       btnExport.textContent = '\u5BFC\u51FA\u9009\u4E2D ' + count + ' \u6761 (' + fmtLabel + ')';
     } else {
@@ -243,9 +308,13 @@
   selectAllEl.addEventListener('change', function () {
     var checked = this.checked;
     if (checked) {
-      filteredNotes.forEach(function (n) { selectedIds[n.id] = true; });
+      filteredNotes.forEach(function (n) {
+        selectedIds[n.id] = true;
+      });
     } else {
-      filteredNotes.forEach(function (n) { delete selectedIds[n.id]; });
+      filteredNotes.forEach(function (n) {
+        delete selectedIds[n.id];
+      });
     }
     // Update checkboxes on current page
     noteTableBody.querySelectorAll('input[type="checkbox"]').forEach(function (cb) {
@@ -256,11 +325,17 @@
 
   // --- Event: Pagination ---
   btnPrev.addEventListener('click', function () {
-    if (currentPage > 1) { currentPage--; renderPage(); }
+    if (currentPage > 1) {
+      currentPage--;
+      renderPage();
+    }
   });
   btnNext.addEventListener('click', function () {
     var totalPages = Math.ceil(filteredNotes.length / pageSize);
-    if (currentPage < totalPages) { currentPage++; renderPage(); }
+    if (currentPage < totalPages) {
+      currentPage++;
+      renderPage();
+    }
   });
 
   // --- Event: File format (multi-select) ---
@@ -325,7 +400,9 @@
   function getNotesToExport() {
     var count = Object.keys(selectedIds).length;
     if (count === 0) return filteredNotes;
-    return filteredNotes.filter(function (n) { return selectedIds[n.id]; });
+    return filteredNotes.filter(function (n) {
+      return selectedIds[n.id];
+    });
   }
 
   function doZipExport() {
@@ -342,8 +419,11 @@
       progressEl.classList.add('active');
       btnExport.disabled = true;
 
-      var needTranscripts = settings.transcriptMode !== 'none' &&
-        notes.some(function (n) { return !n.rawTranscript; });
+      var needTranscripts =
+        settings.transcriptMode !== 'none' &&
+        notes.some(function (n) {
+          return !n.rawTranscript;
+        });
       var chain = Promise.resolve();
       if (needTranscripts) {
         ptxtEl.textContent = '\u6B63\u5728\u83B7\u53D6\u6587\u5B57\u8BB0\u5F55...';
@@ -352,31 +432,37 @@
         });
       }
 
-      chain.then(function () {
-        var hasNonMd = formats.indexOf('pdf') !== -1 || formats.indexOf('docx') !== -1;
-        if (hasNonMd && notes.length > 20) {
-          ptxtEl.textContent = 'PDF/DOCX \u751F\u6210\u8F83\u6162\uFF0C\u8BF7\u8010\u5FC3\u7B49\u5F85...';
-        }
+      chain
+        .then(function () {
+          var hasNonMd = formats.indexOf('pdf') !== -1 || formats.indexOf('docx') !== -1;
+          if (hasNonMd && notes.length > 20) {
+            ptxtEl.textContent =
+              'PDF/DOCX \u751F\u6210\u8F83\u6162\uFF0C\u8BF7\u8010\u5FC3\u7B49\u5F85...';
+          }
 
-        return ExportEngine.zipExport(notes, settings, formats, function (done, total) {
-          var pct = Math.round((done / total) * 100);
-          pfillEl.style.width = pct + '%';
-          ptxtEl.textContent = done + ' / ' + total + ' \u7B14\u8BB0\u5DF2\u5904\u7406';
+          return ExportEngine.zipExport(notes, settings, formats, function (done, total) {
+            var pct = Math.round((done / total) * 100);
+            pfillEl.style.width = pct + '%';
+            ptxtEl.textContent = done + ' / ' + total + ' \u7B14\u8BB0\u5DF2\u5904\u7406';
+          });
+        })
+        .then(function () {
+          ptxtEl.textContent =
+            '\u5BFC\u51FA\u5B8C\u6210\uFF01\u8BF7\u67E5\u770B\u4E0B\u8F7D\u6587\u4EF6\u5939\u3002';
+          btnExport.disabled = false;
+          setTimeout(function () {
+            progressEl.classList.remove('active');
+            applyFilters();
+          }, 3000);
         });
-      }).then(function () {
-        ptxtEl.textContent = '\u5BFC\u51FA\u5B8C\u6210\uFF01\u8BF7\u67E5\u770B\u4E0B\u8F7D\u6587\u4EF6\u5939\u3002';
-        btnExport.disabled = false;
-        setTimeout(function () {
-          progressEl.classList.remove('active');
-          applyFilters();
-        }, 3000);
-      });
     });
   }
 
   function doVaultExport() {
     if (typeof VaultWriter === 'undefined' || !VaultWriter.isReady()) {
-      alert('Vault \u672A\u5C31\u7EEA\u3002\u8BF7\u5148\u5728\u8BBE\u7F6E\u9875\u9762\u9009\u62E9 Vault \u6587\u4EF6\u5939\u3002');
+      alert(
+        'Vault \u672A\u5C31\u7EEA\u3002\u8BF7\u5148\u5728\u8BBE\u7F6E\u9875\u9762\u9009\u62E9 Vault \u6587\u4EF6\u5939\u3002'
+      );
       return;
     }
 
@@ -390,8 +476,11 @@
       progressEl.classList.add('active');
       btnExport.disabled = true;
 
-      var needTranscripts = settings.transcriptMode !== 'none' &&
-        notes.some(function (n) { return !n.rawTranscript; });
+      var needTranscripts =
+        settings.transcriptMode !== 'none' &&
+        notes.some(function (n) {
+          return !n.rawTranscript;
+        });
       var chain = Promise.resolve();
       if (needTranscripts) {
         ptxtEl.textContent = '\u6B63\u5728\u83B7\u53D6\u6587\u5B57\u8BB0\u5F55...';
@@ -400,28 +489,52 @@
         });
       }
 
-      chain.then(function () {
-        return ExportEngine.vaultExport(notes, settings, function (done, total, written, errorCount) {
-          var pct = Math.round((done / total) * 100);
-          pfillEl.style.width = pct + '%';
-          ptxtEl.textContent = done + ' / ' + total + ' \u5DF2\u5904\u7406 (' + written + ' \u5199\u5165, ' + errorCount + ' \u9519\u8BEF)';
+      chain
+        .then(function () {
+          return ExportEngine.vaultExport(
+            notes,
+            settings,
+            function (done, total, written, errorCount) {
+              var pct = Math.round((done / total) * 100);
+              pfillEl.style.width = pct + '%';
+              ptxtEl.textContent =
+                done +
+                ' / ' +
+                total +
+                ' \u5DF2\u5904\u7406 (' +
+                written +
+                ' \u5199\u5165, ' +
+                errorCount +
+                ' \u9519\u8BEF)';
+            }
+          );
+        })
+        .then(function (result) {
+          ExportTracker.markExported(
+            notes.map(function (n) {
+              return n.id;
+            })
+          );
+          ptxtEl.textContent =
+            '\u5BFC\u51FA\u5B8C\u6210\uFF01' +
+            result.written +
+            ' \u7BC7\u7B14\u8BB0\u5DF2\u5199\u5165 Vault\u3002';
+          if (result.errors.length > 0) {
+            ptxtEl.textContent += ' (' + result.errors.length + ' \u4E2A\u9519\u8BEF)';
+          }
+          btnExport.disabled = false;
+          setTimeout(function () {
+            progressEl.classList.remove('active');
+            applyFilters();
+          }, 4000);
+        })
+        .catch(function (err) {
+          ptxtEl.textContent = '\u5BFC\u51FA\u5931\u8D25: ' + err.message;
+          btnExport.disabled = false;
+          setTimeout(function () {
+            progressEl.classList.remove('active');
+          }, 4000);
         });
-      }).then(function (result) {
-        ExportTracker.markExported(notes.map(function (n) { return n.id; }));
-        ptxtEl.textContent = '\u5BFC\u51FA\u5B8C\u6210\uFF01' + result.written + ' \u7BC7\u7B14\u8BB0\u5DF2\u5199\u5165 Vault\u3002';
-        if (result.errors.length > 0) {
-          ptxtEl.textContent += ' (' + result.errors.length + ' \u4E2A\u9519\u8BEF)';
-        }
-        btnExport.disabled = false;
-        setTimeout(function () {
-          progressEl.classList.remove('active');
-          applyFilters();
-        }, 4000);
-      }).catch(function (err) {
-        ptxtEl.textContent = '\u5BFC\u51FA\u5931\u8D25: ' + err.message;
-        btnExport.disabled = false;
-        setTimeout(function () { progressEl.classList.remove('active'); }, 4000);
-      });
     });
   }
 

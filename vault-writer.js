@@ -18,8 +18,12 @@ var VaultWriter = (function () {
       request.onupgradeneeded = function (e) {
         e.target.result.createObjectStore(STORE_NAME);
       };
-      request.onsuccess = function (e) { resolve(e.target.result); };
-      request.onerror = function (e) { reject(e.target.error); };
+      request.onsuccess = function (e) {
+        resolve(e.target.result);
+      };
+      request.onerror = function (e) {
+        reject(e.target.error);
+      };
     });
   }
 
@@ -28,8 +32,12 @@ var VaultWriter = (function () {
       return new Promise(function (resolve, reject) {
         var tx = db.transaction(STORE_NAME, 'readwrite');
         tx.objectStore(STORE_NAME).put(handle, HANDLE_KEY);
-        tx.oncomplete = function () { resolve(); };
-        tx.onerror = function (e) { reject(e.target.error); };
+        tx.oncomplete = function () {
+          resolve();
+        };
+        tx.onerror = function (e) {
+          reject(e.target.error);
+        };
       });
     });
   }
@@ -39,8 +47,12 @@ var VaultWriter = (function () {
       return new Promise(function (resolve, reject) {
         var tx = db.transaction(STORE_NAME, 'readonly');
         var req = tx.objectStore(STORE_NAME).get(HANDLE_KEY);
-        req.onsuccess = function () { resolve(req.result || null); };
-        req.onerror = function (e) { reject(e.target.error); };
+        req.onsuccess = function () {
+          resolve(req.result || null);
+        };
+        req.onerror = function (e) {
+          reject(e.target.error);
+        };
       });
     });
   }
@@ -50,8 +62,12 @@ var VaultWriter = (function () {
       return new Promise(function (resolve, reject) {
         var tx = db.transaction(STORE_NAME, 'readwrite');
         tx.objectStore(STORE_NAME).delete(HANDLE_KEY);
-        tx.oncomplete = function () { resolve(); };
-        tx.onerror = function () { resolve(); }; // ignore delete errors
+        tx.oncomplete = function () {
+          resolve();
+        };
+        tx.onerror = function () {
+          resolve();
+        }; // ignore delete errors
       });
     });
   }
@@ -63,56 +79,67 @@ var VaultWriter = (function () {
   }
 
   function pickDirectory() {
-    return window.showDirectoryPicker({ mode: 'readwrite' }).then(function (handle) {
-      directoryHandle = handle;
-      return saveHandleToDB(handle).then(function () {
-        return handle;
+    return window
+      .showDirectoryPicker({ mode: 'readwrite' })
+      .then(function (handle) {
+        directoryHandle = handle;
+        return saveHandleToDB(handle).then(function () {
+          return handle;
+        });
+      })
+      .catch(function (e) {
+        if (e.name === 'AbortError') return null;
+        throw e;
       });
-    }).catch(function (e) {
-      if (e.name === 'AbortError') return null;
-      throw e;
-    });
   }
 
   function restoreHandle() {
-    return loadHandleFromDB().then(function (handle) {
-      if (!handle) return null;
-      return handle.queryPermission({ mode: 'readwrite' }).then(function (perm) {
-        if (perm === 'granted') {
-          directoryHandle = handle;
-          return handle;
-        }
-        _pendingHandle = handle;
+    return loadHandleFromDB()
+      .then(function (handle) {
+        if (!handle) return null;
+        return handle.queryPermission({ mode: 'readwrite' }).then(function (perm) {
+          if (perm === 'granted') {
+            directoryHandle = handle;
+            return handle;
+          }
+          _pendingHandle = handle;
+          return null;
+        });
+      })
+      .catch(function (e) {
+        console.warn('[Biji Ext] Could not restore vault handle:', e);
         return null;
       });
-    }).catch(function (e) {
-      console.warn('[Biji Ext] Could not restore vault handle:', e);
-      return null;
-    });
   }
 
   function requestPermission() {
     if (!_pendingHandle) return Promise.resolve(false);
-    return _pendingHandle.requestPermission({ mode: 'readwrite' }).then(function (perm) {
-      if (perm === 'granted') {
-        directoryHandle = _pendingHandle;
-        _pendingHandle = null;
-        return true;
-      }
-      return false;
-    }).catch(function () {
-      return false;
-    });
+    return _pendingHandle
+      .requestPermission({ mode: 'readwrite' })
+      .then(function (perm) {
+        if (perm === 'granted') {
+          directoryHandle = _pendingHandle;
+          _pendingHandle = null;
+          return true;
+        }
+        return false;
+      })
+      .catch(function () {
+        return false;
+      });
   }
 
   function writeFile(dirHandle, filename, content) {
-    return dirHandle.getFileHandle(filename, { create: true }).then(function (fileHandle) {
-      return fileHandle.createWritable();
-    }).then(function (writable) {
-      return writable.write(content).then(function () {
-        return writable.close();
+    return dirHandle
+      .getFileHandle(filename, { create: true })
+      .then(function (fileHandle) {
+        return fileHandle.createWritable();
+      })
+      .then(function (writable) {
+        return writable.write(content).then(function () {
+          return writable.close();
+        });
       });
-    });
   }
 
   function writeAllNotes(notes, subfolder, markdownConverter, onProgress) {
@@ -151,13 +178,15 @@ var VaultWriter = (function () {
             used[fn] = true;
 
             var md = markdownConverter.convert(note);
-            return writeFile(targetDir, fn, md).then(function () {
-              written++;
-              if (onProgress) onProgress(index + 1, total, written, errors.length);
-            }).catch(function (e) {
-              errors.push({ filename: fn, error: e.message });
-              if (onProgress) onProgress(index + 1, total, written, errors.length);
-            });
+            return writeFile(targetDir, fn, md)
+              .then(function () {
+                written++;
+                if (onProgress) onProgress(index + 1, total, written, errors.length);
+              })
+              .catch(function (e) {
+                errors.push({ filename: fn, error: e.message });
+                if (onProgress) onProgress(index + 1, total, written, errors.length);
+              });
           });
         })(i);
       }
@@ -198,6 +227,6 @@ var VaultWriter = (function () {
     clearHandle: clearHandle,
     getDirectoryName: getDirectoryName,
     isReady: isReady,
-    needsPermission: needsPermission
+    needsPermission: needsPermission,
   };
 })();

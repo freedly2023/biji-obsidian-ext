@@ -15,7 +15,9 @@
   // 1. Inject the page-level interceptor + Vue scanner script
   var s = document.createElement('script');
   s.src = chrome.runtime.getURL('inject.js');
-  s.onload = function () { s.remove(); };
+  s.onload = function () {
+    s.remove();
+  };
   (document.head || document.documentElement).appendChild(s);
 
   // 2. Listen for data from inject.js via CustomEvent
@@ -63,13 +65,14 @@
       });
 
       return true; // Keep sendResponse channel open for async reply
-
     } else if (msg.type === 'fetchTranscript') {
       // Bridge popup → inject.js for raw transcript fetching
       var noteId = msg.noteId;
-      window.dispatchEvent(new CustomEvent('biji-ext-fetch-transcript', {
-        detail: JSON.stringify({ noteId: noteId })
-      }));
+      window.dispatchEvent(
+        new CustomEvent('biji-ext-fetch-transcript', {
+          detail: JSON.stringify({ noteId: noteId }),
+        })
+      );
 
       var txHandled = false;
       var txTimeout = setTimeout(function () {
@@ -100,7 +103,6 @@
 
       return true; // Keep sendResponse channel open for async reply
     }
-
   });
 
   console.log(PREFIX, 'Content script loaded (bridge mode — Vue scanning delegated to inject.js)');

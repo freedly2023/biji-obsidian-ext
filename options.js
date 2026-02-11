@@ -26,9 +26,9 @@
       type: true,
       tags: true,
       biji_id: true,
-      exported: true
+      exported: true,
     },
-    imageFormat: 'link'
+    imageFormat: 'link',
   };
 
   // DOM references — existing
@@ -70,7 +70,9 @@
         var radio = opt.querySelector('input[type="radio"]');
         if (radio) {
           radio.checked = true;
-          options.forEach(function (o) { o.classList.remove('selected'); });
+          options.forEach(function (o) {
+            o.classList.remove('selected');
+          });
           opt.classList.add('selected');
           // Trigger change event for dependent logic
           radio.dispatchEvent(new Event('change', { bubbles: true }));
@@ -175,20 +177,22 @@
       return;
     }
 
-    VaultWriter.restoreHandle().then(function (handle) {
-      if (handle) {
-        setVaultStatusUI('connected', '已连接: ' + VaultWriter.getDirectoryName());
-        btnGrantPerm.style.display = 'none';
-      } else if (VaultWriter.needsPermission()) {
-        setVaultStatusUI('needs-permission', '需要授权: ' + VaultWriter.getDirectoryName());
-        btnGrantPerm.style.display = '';
-      } else {
+    VaultWriter.restoreHandle()
+      .then(function (handle) {
+        if (handle) {
+          setVaultStatusUI('connected', '已连接: ' + VaultWriter.getDirectoryName());
+          btnGrantPerm.style.display = 'none';
+        } else if (VaultWriter.needsPermission()) {
+          setVaultStatusUI('needs-permission', '需要授权: ' + VaultWriter.getDirectoryName());
+          btnGrantPerm.style.display = '';
+        } else {
+          setVaultStatusUI('not-selected', '未选择 Vault 文件夹');
+          btnGrantPerm.style.display = 'none';
+        }
+      })
+      .catch(function () {
         setVaultStatusUI('not-selected', '未选择 Vault 文件夹');
-        btnGrantPerm.style.display = 'none';
-      }
-    }).catch(function () {
-      setVaultStatusUI('not-selected', '未选择 Vault 文件夹');
-    });
+      });
   }
 
   function setVaultStatusUI(statusClass, text) {
@@ -199,14 +203,16 @@
   // --- Vault buttons ---
   btnPickVault.addEventListener('click', function () {
     if (typeof VaultWriter === 'undefined') return;
-    VaultWriter.pickDirectory().then(function (handle) {
-      if (handle) {
-        updateVaultStatus();
-        showStatus('success', 'Vault 文件夹已选择: ' + handle.name);
-      }
-    }).catch(function (err) {
-      showStatus('error', '选择文件夹失败: ' + err.message);
-    });
+    VaultWriter.pickDirectory()
+      .then(function (handle) {
+        if (handle) {
+          updateVaultStatus();
+          showStatus('success', 'Vault 文件夹已选择: ' + handle.name);
+        }
+      })
+      .catch(function (err) {
+        showStatus('error', '选择文件夹失败: ' + err.message);
+      });
   });
 
   btnGrantPerm.addEventListener('click', function () {
@@ -239,7 +245,7 @@
     type: 'fmType',
     tags: 'fmTags',
     biji_id: 'fmBijiId',
-    exported: 'fmExported'
+    exported: 'fmExported',
   };
 
   function getFrontmatterFields() {
@@ -263,10 +269,16 @@
     chrome.storage.local.get('settings', function (data) {
       var s = Object.assign({}, DEFAULTS, data.settings || {});
       // Deep merge frontmatterFields
-      s.frontmatterFields = Object.assign({}, DEFAULTS.frontmatterFields, s.frontmatterFields || {});
+      s.frontmatterFields = Object.assign(
+        {},
+        DEFAULTS.frontmatterFields,
+        s.frontmatterFields || {}
+      );
 
       // Export mode
-      var modeInput = document.querySelector('input[name="exportMode"][value="' + s.exportMode + '"]');
+      var modeInput = document.querySelector(
+        'input[name="exportMode"][value="' + s.exportMode + '"]'
+      );
       if (modeInput) {
         modeInput.checked = true;
         updateRadioUI(s.exportMode);
@@ -340,21 +352,27 @@
       transcriptMode: getRadioGroupValue('transcriptMode') || 'none',
       folderMode: getRadioGroupValue('folderMode') || 'flat',
       frontmatterFields: getFrontmatterFields(),
-      imageFormat: getRadioGroupValue('imageFormat') || 'link'
+      imageFormat: getRadioGroupValue('imageFormat') || 'link',
     };
 
-    chrome.storage.local.set({ settings: settings, discoveryMode: settings.discoveryMode }, function () {
-      showStatus('success', '设置已保存');
-    });
+    chrome.storage.local.set(
+      { settings: settings, discoveryMode: settings.discoveryMode },
+      function () {
+        showStatus('success', '设置已保存');
+      }
+    );
   }
 
   // --- Reset to defaults ---
   function resetSettings() {
     if (!confirm('确定要恢复所有设置为默认值吗？')) return;
-    chrome.storage.local.set({ settings: DEFAULTS, discoveryMode: DEFAULTS.discoveryMode }, function () {
-      loadSettings();
-      showStatus('success', '设置已恢复为默认值');
-    });
+    chrome.storage.local.set(
+      { settings: DEFAULTS, discoveryMode: DEFAULTS.discoveryMode },
+      function () {
+        loadSettings();
+        showStatus('success', '设置已恢复为默认值');
+      }
+    );
   }
 
   // --- Status messages ---
