@@ -1,5 +1,8 @@
 // background.js — Service worker: stores captured notes, handles messages
 
+importScripts('link-submitter.js');
+importScripts('feed-manager.js');
+
 var DEBUG = false;
 function log() {
   if (!DEBUG) return;
@@ -578,6 +581,56 @@ chrome.runtime.onMessage.addListener(function (msg, sender, sendResponse) {
     if (fetchAbortController) {
       fetchAbortController.abort();
     }
+  } else if (msg.type === 'submitLink') {
+    // Submit a link to biji.com
+    LinkSubmitter.submitLink(msg.url, msg.title, capturedApiHeaders)
+      .then(function (result) {
+        sendResponse({ ok: true, data: result });
+      })
+      .catch(function (err) {
+        sendResponse({ ok: false, error: err.message });
+      });
+    return true; // async sendResponse
+  } else if (msg.type === 'isLinkSubmitted') {
+    // Check if a link was already submitted
+    LinkSubmitter.isAlreadySubmitted(msg.url).then(function (submitted) {
+      sendResponse({ submitted: submitted });
+    });
+    return true;
+  } else if (msg.type === 'getSubmissionHistory') {
+    LinkSubmitter.getSubmissionHistory(msg.limit).then(function (history) {
+      sendResponse({ history: history });
+    });
+    return true;
+  } else if (msg.type === 'getFeeds') {
+    FeedManager.getFeeds().then(function (feeds) {
+      sendResponse({ feeds: feeds });
+    });
+    return true;
+  } else if (msg.type === 'addFeed') {
+    FeedManager.addFeed(msg.url, msg.name).then(function (feed) {
+      sendResponse({ ok: true, feed: feed });
+    }).catch(function (err) {
+      sendResponse({ ok: false, error: err.message });
+    });
+    return true;
+  } else if (msg.type === 'removeFeed') {
+    FeedManager.removeFeed(msg.feedId).then(function () {
+      sendResponse({ ok: true });
+    });
+    return true;
+  } else if (msg.type === 'toggleFeed') {
+    FeedManager.toggleFeed(msg.feedId).then(function (feed) {
+      sendResponse({ ok: true, feed: feed });
+    });
+    return true;
+  } else if (msg.type === 'checkFeedsNow') {
+    FeedManager.checkAllFeeds(capturedApiHeaders).then(function (result) {
+      sendResponse({ ok: true, result: result });
+    }).catch(function (err) {
+      sendResponse({ ok: false, error: err.message });
+    });
+    return true;
   }
 });
 
@@ -625,4 +678,15 @@ function updateBadge(count) {
 chrome.storage.local.get('notes', function (data) {
   var count = data.notes ? Object.keys(data.notes).length : 0;
   updateBadge(count);
+});
+
+// --- Feed alarm handler ---
+chrome.alarms.onAlarm.addListener(function (alarm) {
+  if (alarm.name === FeedManager.ALARM_NAME) {
+    if (capturedApiHeaders) {
+      FeedManager.checkAllFeeds(capturedApiHeaders).catch(function (err) {
+        console.warn('[Biji Ext] Scheduled feed check failed:', err.message);
+      });
+    }
+  }
 });

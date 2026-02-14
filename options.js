@@ -29,6 +29,14 @@
       exported: true,
     },
     imageFormat: 'link',
+    // Link submission
+    enableInjectBtn: true,
+    injectBtnYoutube: true,
+    injectBtnBilibili: true,
+    injectBtnXiaoyuzhou: true,
+    // Feed management
+    feedAutoCheck: false,
+    feedCheckInterval: 60,
   };
 
   // DOM references — existing
@@ -58,6 +66,22 @@
   var customTemplateRow = document.getElementById('customTemplateRow');
   var customTemplate = document.getElementById('customTemplate');
   var folderHint = document.getElementById('folderHint');
+
+  // DOM references — link submission
+  var enableInjectBtn = document.getElementById('enableInjectBtn');
+  var injectBtnYoutube = document.getElementById('injectBtnYoutube');
+  var injectBtnBilibili = document.getElementById('injectBtnBilibili');
+  var injectBtnXiaoyuzhou = document.getElementById('injectBtnXiaoyuzhou');
+
+  // DOM references — feed management
+  var feedUrlInput = document.getElementById('feedUrlInput');
+  var btnAddFeed = document.getElementById('btnAddFeed');
+  var feedList = document.getElementById('feedList');
+  var feedEmptyHint = document.getElementById('feedEmptyHint');
+  var feedAutoCheck = document.getElementById('feedAutoCheck');
+  var feedCheckInterval = document.getElementById('feedCheckInterval');
+  var btnCheckFeedsNow = document.getElementById('btnCheckFeedsNow');
+  var feedCheckStatus = document.getElementById('feedCheckStatus');
 
   // --- Generic radio group handler ---
   // Makes radio-option labels toggle .selected class on click
@@ -324,6 +348,16 @@
       fetchDelay.value = s.fetchDelay;
       scanDepth.value = s.scanDepth;
 
+      // Link submission
+      enableInjectBtn.checked = s.enableInjectBtn !== false;
+      injectBtnYoutube.checked = s.injectBtnYoutube !== false;
+      injectBtnBilibili.checked = s.injectBtnBilibili !== false;
+      injectBtnXiaoyuzhou.checked = s.injectBtnXiaoyuzhou !== false;
+
+      // Feed management
+      feedAutoCheck.checked = !!s.feedAutoCheck;
+      feedCheckInterval.value = s.feedCheckInterval || 60;
+
       // Also sync the legacy discoveryMode key used by popup
       chrome.storage.local.set({ discoveryMode: s.discoveryMode });
 
@@ -332,6 +366,7 @@
     });
 
     updateVaultStatus();
+    loadFeedList();
   }
 
   // --- Save settings ---
@@ -353,6 +388,14 @@
       folderMode: getRadioGroupValue('folderMode') || 'flat',
       frontmatterFields: getFrontmatterFields(),
       imageFormat: getRadioGroupValue('imageFormat') || 'link',
+      // Link submission
+      enableInjectBtn: enableInjectBtn.checked,
+      injectBtnYoutube: injectBtnYoutube.checked,
+      injectBtnBilibili: injectBtnBilibili.checked,
+      injectBtnXiaoyuzhou: injectBtnXiaoyuzhou.checked,
+      // Feed management
+      feedAutoCheck: feedAutoCheck.checked,
+      feedCheckInterval: parseInt(feedCheckInterval.value, 10) || 60,
     };
 
     chrome.storage.local.set(
@@ -384,6 +427,117 @@
       statusMsg.style.display = 'none';
     }, 3000);
   }
+
+  // --- Feed management UI ---
+  function loadFeedList() {
+    chrome.runtime.sendMessage({ type: 'getFeeds' }, function (resp) {
+      if (chrome.runtime.lastError || !resp) return;
+      renderFeedList(resp.feeds || []);
+    });
+  }
+
+  function renderFeedList(feeds) {
+    // Clear existing items (keep empty hint)
+    var items = feedList.querySelectorAll('.feed-item');
+    items.forEach(function (item) { item.remove(); });
+
+    if (feeds.length === 0) {
+      feedEmptyHint.style.display = 'block';
+      return;
+    }
+    feedEmptyHint.style.display = 'none';
+
+    feeds.forEach(function (feed) {
+      var div = document.createElement('div');
+      div.className = 'feed-item';
+
+      var info = document.createElement('div');
+      info.className = 'feed-info';
+      var nameEl = document.createElement('div');
+      nameEl.className = 'feed-name';
+      nameEl.textContent = feed.name || feed.url;
+      info.appendChild(nameEl);
+      var urlEl = document.createElement('div');
+      urlEl.className = 'feed-url';
+      urlEl.textContent = feed.url;
+      info.appendChild(urlEl);
+      if (feed.lastChecked) {
+        var lastCheck = document.createElement('div');
+        lastCheck.className = 'feed-last-check';
+        lastCheck.textContent = '上次检查: ' + new Date(feed.lastChecked).toLocaleString('zh-CN');
+        info.appendChild(lastCheck);
+      }
+      div.appendChild(info);
+
+      var actions = document.createElement('div');
+      actions.className = 'feed-actions';
+
+      var toggleBtn = document.createElement('button');
+      toggleBtn.className = 'toggle-btn ' + (feed.enabled ? 'enabled' : 'disabled');
+      toggleBtn.textContent = feed.enabled ? '已启用' : '已禁用';
+      toggleBtn.addEventListener('click', function () {
+        chrome.runtime.sendMessage({ type: 'toggleFeed', feedId: feed.id }, function () {
+          loadFeedList();
+        });
+      });
+      actions.appendChild(toggleBtn);
+
+      var deleteBtn = document.createElement('button');
+      deleteBtn.className = 'delete-btn';
+      deleteBtn.textContent = '删除';
+      deleteBtn.addEventListener('click', function () {
+        if (!confirm('确定要删除此订阅源吗？')) return;
+        chrome.runtime.sendMessage({ type: 'removeFeed', feedId: feed.id }, function () {
+          loadFeedList();
+        });
+      });
+      actions.appendChild(deleteBtn);
+
+      div.appendChild(actions);
+      feedList.appendChild(div);
+    });
+  }
+
+  // Add feed button
+  btnAddFeed.addEventListener('click', function () {
+    var url = feedUrlInput.value.trim();
+    if (!url) return;
+    btnAddFeed.disabled = true;
+    chrome.runtime.sendMessage({ type: 'addFeed', url: url, name: '' }, function (resp) {
+      btnAddFeed.disabled = false;
+      if (chrome.runtime.lastError) {
+        showStatus('error', '添加失败: ' + chrome.runtime.lastError.message);
+        return;
+      }
+      if (resp && resp.ok) {
+        feedUrlInput.value = '';
+        loadFeedList();
+        showStatus('success', '订阅源已添加');
+      } else {
+        showStatus('error', '添加失败: ' + ((resp && resp.error) || '未知错误'));
+      }
+    });
+  });
+
+  // Check feeds now button
+  btnCheckFeedsNow.addEventListener('click', function () {
+    btnCheckFeedsNow.disabled = true;
+    feedCheckStatus.textContent = '检查中...';
+    chrome.runtime.sendMessage({ type: 'checkFeedsNow' }, function (resp) {
+      btnCheckFeedsNow.disabled = false;
+      if (chrome.runtime.lastError) {
+        feedCheckStatus.textContent = '检查失败';
+        return;
+      }
+      if (resp && resp.ok) {
+        var r = resp.result || {};
+        feedCheckStatus.textContent = '已检查 ' + (r.checked || 0) + ' 个源，新提交 ' + (r.newItems || 0) + ' 条';
+        loadFeedList(); // refresh lastChecked times
+      } else {
+        feedCheckStatus.textContent = '检查失败: ' + ((resp && resp.error) || '');
+      }
+    });
+  });
 
   // --- Event bindings ---
   btnSave.addEventListener('click', saveSettings);

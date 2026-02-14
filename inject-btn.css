@@ -1,0 +1,71 @@
+/* inject-btn.css — Styles for the "Get笔记" button injected on video/audio platforms */
+
+.biji-ext-btn-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 8px 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+.biji-ext-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 18px;
+  border: none;
+  border-radius: 20px;
+  font-size: 14px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  background: #6C5CE7;
+  color: #fff;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+
+.biji-ext-btn:hover {
+  background: #5a4bd1;
+  box-shadow: 0 2px 8px rgba(108, 92, 231, 0.35);
+}
+
+.biji-ext-btn:active {
+  transform: scale(0.97);
+}
+
+.biji-ext-btn.biji-ext-loading {
+  opacity: 0.7;
+  cursor: wait;
+  pointer-events: none;
+}
+
+.biji-ext-btn.biji-ext-submitted {
+  background: #a0a0a0;
+  cursor: default;
+  pointer-events: none;
+}
+
+.biji-ext-btn.biji-ext-success {
+  background: #27ae60;
+}
+
+.biji-ext-btn.biji-ext-error {
+  background: #e74c3c;
+}
+
+/* Spinner animation */
+.biji-ext-spinner {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: biji-ext-spin 0.6s linear infinite;
+}
+
+@keyframes biji-ext-spin {
+  to { transform: rotate(360deg); }
+}

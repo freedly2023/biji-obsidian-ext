@@ -532,15 +532,22 @@
     }
   }
 
+  // --- Helper: check if URL belongs to biji/luojilab domains ---
+  function isBijiDomain(url) {
+    return url.indexOf('biji.com') !== -1 || url.indexOf('luojilab.com') !== -1;
+  }
+
   // --- Hook XMLHttpRequest ---
   var OrigXHR = window.XMLHttpRequest;
   function HookedXHR() {
     var xhr = new OrigXHR();
     var _url = '';
+    var _method = 'GET';
     var _headers = {};
     var origOpen = xhr.open.bind(xhr);
     xhr.open = function (method, url) {
       _url = url;
+      _method = (method || 'GET').toUpperCase();
       _headers = {};
       return origOpen.apply(this, arguments);
     };
@@ -550,11 +557,19 @@
       return origSetRequestHeader.apply(this, arguments);
     };
     var origSend = xhr.send.bind(xhr);
-    xhr.send = function () {
+    xhr.send = function (body) {
       // Capture auth headers from API requests
       if (_url.indexOf('get-notes.luojilab.com') !== -1) {
         log('XHR API request headers captured:', JSON.stringify(_headers));
         postToExtension('apiHeaders', { headers: _headers });
+      }
+      // Discovery: capture POST request body for biji/luojilab domains
+      if (_method === 'POST' && isBijiDomain(_url) && body) {
+        var bodyPreview = typeof body === 'string' ? body.substring(0, 2000) : String(body).substring(0, 2000);
+        postToExtension('discovery', {
+          url: _url + ' [XHR-POST-REQUEST]',
+          preview: 'Method: POST\nHeaders: ' + JSON.stringify(_headers) + '\nBody: ' + bodyPreview,
+        });
       }
       xhr.addEventListener('load', function () {
         if (xhr.status >= 200 && xhr.status < 300) {
@@ -602,6 +617,19 @@
       log('API request headers captured:', JSON.stringify(capturedHeaders));
       // Send to extension for background.js to reuse
       postToExtension('apiHeaders', { headers: capturedHeaders });
+    }
+
+    // Discovery: capture POST request body for biji/luojilab domains
+    var method = (init && init.method || 'GET').toUpperCase();
+    if (method === 'POST' && isBijiDomain(url)) {
+      var reqBody = init && init.body;
+      if (reqBody) {
+        var bodyPreview = typeof reqBody === 'string' ? reqBody.substring(0, 2000) : String(reqBody).substring(0, 2000);
+        postToExtension('discovery', {
+          url: url + ' [FETCH-POST-REQUEST]',
+          preview: 'Method: POST\nHeaders: ' + JSON.stringify(capturedHeaders) + '\nBody: ' + bodyPreview,
+        });
+      }
     }
 
     var promise = origFetch.call(window, input, init);

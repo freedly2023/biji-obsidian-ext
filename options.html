@@ -319,6 +319,81 @@
         grid-template-columns: 1fr 1fr;
         gap: 0;
       }
+
+      /* Feed list items */
+      .feed-item {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 10px 0;
+        border-bottom: 1px solid #f0f0f0;
+      }
+      .feed-item:last-child {
+        border-bottom: none;
+      }
+      .feed-item .feed-info {
+        flex: 1;
+        min-width: 0;
+      }
+      .feed-item .feed-name {
+        font-weight: 500;
+        color: #333;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .feed-item .feed-url {
+        font-size: 12px;
+        color: #888;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .feed-item .feed-last-check {
+        font-size: 11px;
+        color: #aaa;
+      }
+      .feed-item .feed-actions {
+        display: flex;
+        gap: 6px;
+        flex-shrink: 0;
+      }
+      .feed-item .feed-actions button {
+        padding: 4px 10px;
+        font-size: 12px;
+        border-radius: 6px;
+      }
+      .toggle-btn {
+        padding: 4px 10px;
+        border: 1px solid #ddd;
+        border-radius: 6px;
+        background: #fff;
+        cursor: pointer;
+        font-size: 12px;
+        font-family: inherit;
+      }
+      .toggle-btn.enabled {
+        color: #27ae60;
+        border-color: #27ae60;
+      }
+      .toggle-btn.disabled {
+        color: #999;
+        border-color: #ddd;
+      }
+      .delete-btn {
+        padding: 4px 10px;
+        border: 1px solid #e74c3c;
+        border-radius: 6px;
+        background: #fff;
+        color: #e74c3c;
+        cursor: pointer;
+        font-size: 12px;
+        font-family: inherit;
+      }
+      .delete-btn:hover {
+        background: #e74c3c;
+        color: #fff;
+      }
     </style>
   </head>
   <body>
@@ -573,6 +648,89 @@
           <label for="tagPrefix">标签前缀</label>
           <input type="text" id="tagPrefix" value="#" style="width: 80px" />
           <div class="hint">标签使用的前缀符号</div>
+        </div>
+      </div>
+
+      <!-- Link Submission Settings -->
+      <div class="card">
+        <h2>链接提交</h2>
+
+        <div class="checkbox-row">
+          <input type="checkbox" id="enableInjectBtn" checked />
+          <div class="cb-text">
+            <div class="cb-label">启用页面内按钮注入</div>
+            <div class="cb-hint">在 YouTube、B站、小宇宙页面标题下方显示「Get笔记」按钮</div>
+          </div>
+        </div>
+
+        <div class="form-group" style="margin-top: 14px">
+          <label>平台开关</label>
+          <div class="checkbox-row">
+            <input type="checkbox" id="injectBtnYoutube" checked />
+            <div class="cb-text"><div class="cb-label">YouTube</div></div>
+          </div>
+          <div class="checkbox-row">
+            <input type="checkbox" id="injectBtnBilibili" checked />
+            <div class="cb-text"><div class="cb-label">B站 (Bilibili)</div></div>
+          </div>
+          <div class="checkbox-row">
+            <input type="checkbox" id="injectBtnXiaoyuzhou" checked />
+            <div class="cb-text"><div class="cb-label">小宇宙</div></div>
+          </div>
+        </div>
+
+        <div class="form-group" style="margin-top: 14px">
+          <label>已发现的 API 端点</label>
+          <input type="text" id="discoveredApiUrl" readonly
+            value="https://get-notes.luojilab.com/voicenotes/web/notes/stream"
+            style="background: #f5f5f7; color: #666" />
+          <div class="hint">由 Discovery 模式自动发现（只读）</div>
+        </div>
+      </div>
+
+      <!-- Feed Management -->
+      <div class="card">
+        <h2>订阅源管理</h2>
+
+        <div class="form-group">
+          <label>添加订阅源</label>
+          <div style="display: flex; gap: 8px">
+            <input type="text" id="feedUrlInput" placeholder="输入 RSS/Atom 订阅源 URL" style="flex: 1" />
+            <button class="btn btn-primary" id="btnAddFeed">添加</button>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>订阅源列表</label>
+          <div id="feedList" style="min-height: 40px">
+            <div class="hint" id="feedEmptyHint">暂无订阅源</div>
+          </div>
+        </div>
+
+        <div class="checkbox-row">
+          <input type="checkbox" id="feedAutoCheck" />
+          <div class="cb-text">
+            <div class="cb-label">自动检查</div>
+            <div class="cb-hint">定时检查订阅源并自动提交新条目</div>
+          </div>
+        </div>
+
+        <div class="form-group" style="margin-top: 14px">
+          <label for="feedCheckInterval">检查间隔</label>
+          <select id="feedCheckInterval" class="inline-select">
+            <option value="15">15 分钟</option>
+            <option value="30">30 分钟</option>
+            <option value="60" selected>1 小时</option>
+            <option value="120">2 小时</option>
+            <option value="360">6 小时</option>
+            <option value="720">12 小时</option>
+            <option value="1440">24 小时</option>
+          </select>
+        </div>
+
+        <div class="btn-row">
+          <button class="btn btn-primary" id="btnCheckFeedsNow">立即检查</button>
+          <span id="feedCheckStatus" style="font-size: 13px; color: #888; line-height: 38px"></span>
         </div>
       </div>
 

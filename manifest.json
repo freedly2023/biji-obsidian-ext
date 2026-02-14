@@ -1,15 +1,16 @@
 {
   "manifest_version": 3,
   "name": "Biji to Obsidian",
-  "version": "1.2.0",
-  "description": "Export notes from biji.com (Get笔记) to Markdown for Obsidian",
-  "permissions": ["storage", "cookies"],
+  "version": "1.3.0",
+  "description": "Export notes from biji.com (Get笔记) to Markdown for Obsidian, submit links, track feeds",
+  "permissions": ["storage", "cookies", "alarms"],
   "host_permissions": [
     "https://biji.com/*",
     "https://*.biji.com/*",
     "https://get-notes.luojilab.com/*",
     "https://*.luojilab.com/*",
-    "https://*.umiwi.com/*"
+    "https://*.umiwi.com/*",
+    "<all_urls>"
   ],
   "action": {
     "default_popup": "popup.html",
@@ -30,6 +31,17 @@
       "matches": ["https://biji.com/*", "https://*.biji.com/*"],
       "js": ["content.js"],
       "run_at": "document_start"
+    },
+    {
+      "matches": [
+        "https://www.youtube.com/*",
+        "https://www.bilibili.com/video/*",
+        "https://www.bilibili.com/bangumi/*",
+        "https://www.xiaoyuzhoufm.com/episode/*"
+      ],
+      "js": ["content-inject-btn.js"],
+      "css": ["inject-btn.css"],
+      "run_at": "document_idle"
     }
   ],
   "web_accessible_resources": [
