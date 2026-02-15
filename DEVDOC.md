@@ -1,6 +1,6 @@
 # Biji to Obsidian — Chrome Extension 开发文档
 
-> 版本 1.2.0 | 最后更新 2026-02-10
+> 版本 1.4.0 | 最后更新 2026-02-15
 
 ---
 
@@ -228,8 +228,8 @@ inject.js 和 background.js 都有 `normalizeNote()` 函数，将 API 返回的�
 
 | 模块                         | 功能                                                       |
 | ---------------------------- | ---------------------------------------------------------- |
-| `normalizeNote(raw)`         | 原始笔记 → 标准格式（含 rawTranscript 字段）               |
-| `findNotesArray(obj, depth)` | 递归搜索对象树中的笔记数组（优先键：notes, list, data...） |
+| `normalizeNote(raw)`         | 原始笔记 → 标准格式（含 rawTranscript 字段）。title fallback 链：`raw.title` → `raw.subject`（不含 `raw.name`，避免误用 tag 名称） |
+| `findNotesArray(obj, depth)` | 递归搜索对象树中的笔记数组（优先键：notes, list, data...）。严格匹配要求 ID + 内容字段（不含 `name`），宽松匹配同样要求至少一个内容字段 |
 | `scanVueStore()`             | 扫描 Vue 2/3 的 Vuex/Pinia state                           |
 | `autoScanVueStore()`         | 页面加载后自动扫描（1s→2s→3s→5s→8s 递增重试）              |
 | `processResponse(url, text)` | 处理拦截的 API 响应，提取笔记 + 字段发现日志               |
@@ -366,6 +366,8 @@ inject.js 和 background.js 都有 `normalizeNote()` 函数，将 API 返回的�
 ### 5.7 notes.html + notes.js（笔记管理全页面）
 
 全屏笔记管理页面，支持搜索/筛选/排序/分页/批量导出。从 popup "管理全部笔记" 按钮打开新标签页。
+
+笔记标题为可点击链接，指向 `https://www.biji.com/note/{id}`（新标签页打开），hover 时变为紫色 (#6c5ce7)。
 
 **功能：**
 
@@ -551,7 +553,141 @@ inject.js 中 hook 了 `window.fetch`，但主动获取使用的是 hook 前保�
 
 ---
 
-## 10. 可能的后续迭代方向
+## 10. 订阅管理功能规划（v1.4.0）
+
+### 10.1 功能概述
+
+重构订阅管理系统：在 popup 新增"订阅管理"Tab，展示订阅频道最新内容（播客阅读器风格卡片），用户勾选后批量提交到笔记。支持独立页面管理订阅源、OPML 批量导入、自动标签。
+
+### 10.2 新增文件
+
+| 文件 | 说明 |
+|------|------|
+| `subscriptions.html` | 独立页面：订阅源管理 + 内容浏览 + 批量提交 |
+| `subscriptions.js` | 独立页面逻辑（参照 notes.js 模式） |
+| `subscription-shared.js` | popup 和独立页面共用的渲染/工具函数 |
+| `tag-manager.js` | IIFE 模块：标签预存 + 导出时合并（background.js importScripts） |
+
+### 10.3 修改文件
+
+| 文件 | 改动 |
+|------|------|
+| `popup.html` | 添加 Tab 栏（笔记导出 \| 订阅管理），现有内容包裹在 tab panel 中，新增订阅 panel |
+| `popup.js` | Tab 切换逻辑 + 订阅 Tab 数据加载/渲染/批量提交 |
+| `feed-manager.js` | 重构：新增 feed item 存储、type/channelName 字段、OPML 解析、YouTube URL 转换、editFeed、数据迁移 |
+| `background.js` | importScripts('tag-manager.js')，新增 ~10 个消息处理器 |
+| `manifest.json` | 版本号 → 1.4.0 |
+| `shared.js` | 导出时合并 pendingTags 到 note.tags 的辅助函数 |
+| `notes.html` | header 添加"订阅管理"导航链接 |
+| `options.html` / `options.js` | 订阅源区域添加"打开订阅管理"链接，新增 feedAutoSubmit 设置 |
+
+### 10.4 数据模型变更
+
+**Feed 对象增强**（storage key: `feeds`）：
+```javascript
+{
+  ...existing,
+  type: 'youtube' | 'podcast' | 'bilibili' | 'other',  // 频道类型
+  channelName: String,  // 频道显示名（用于分组和标签）
+}
+```
+
+**新增 Feed Items**（storage key: `feedItems`）：
+```javascript
+// 结构: { [guid]: FeedItem }
+{
+  guid: String,         // RSS guid 或 URL
+  feedId: String,       // 所属 feed ID
+  title: String,
+  url: String,
+  pubDate: String,      // ISO 时间
+  thumbnail: String,    // 从 media:thumbnail / itunes:image 提取
+  description: String,  // 摘要（截断 200 字）
+  status: 'new' | 'submitted' | 'noted',
+  submittedAt: String | null,
+  noteId: String | null,
+  tags: String[],       // 预计算标签: [type, channelName]
+}
+// 上限 10000 条，超出时清理最旧的 submitted/noted 项
+```
+
+**新增 Pending Tags**（storage key: `pendingTags`）：
+```javascript
+// 结构: { [noteId]: { tags: String[], appliedAt: String|null } }
+// 提交链接时预存标签，导出笔记时合并到 frontmatter tags
+```
+
+**新增设置字段**：
+```javascript
+{ feedAutoSubmit: false }  // true = 自动提交（旧行为），false = 仅存储待用户选择
+```
+
+### 10.5 新增消息类型
+
+| type | 方向 | 说明 |
+|------|------|------|
+| `getFeedItems` | popup/page → bg | 获取 feed items（支持 feedId/status 筛选） |
+| `submitFeedItems` | popup/page → bg | 批量提交选中项 |
+| `refreshAllFeedItems` | popup/page → bg | 刷新所有启用 feed，存储新 items |
+| `refreshFeedItems` | popup/page → bg | 刷新单个 feed |
+| `editFeed` | popup/page → bg | 编辑 feed 属性 |
+| `importFeedsOpml` | popup/page → bg | 解析 OPML 批量添加 feeds |
+| `convertYoutubeUrl` | popup/page → bg | YouTube 频道 URL → RSS feed URL |
+| `getPendingTags` | popup/page → bg | 获取待应用标签映射 |
+
+### 10.6 UI 设计
+
+**Popup Tab 栏**：在 `.header` 和 `.body` 之间插入 Tab 切换（笔记导出 | 订阅管理）。
+
+**Popup 订阅 Tab**：
+- 顶部：刷新按钮 + 状态文字 + "管理订阅"链接
+- 筛选：状态下拉（全部/未提交/已提交）
+- 批量操作栏：全选 + 已选数量 + "提交选中"按钮
+- 内容列表：播客阅读器风格卡片（最多 30 条，按 pubDate 降序）
+  - 每张卡片：checkbox + 缩略图(48×48) + 标题 + 频道名(紫色) + 日期 + 状态徽章
+
+**独立页面**（subscriptions.html，参照 notes.html 布局）：
+1. 订阅源管理卡片：feed 列表 + 添加表单 + OPML 批量导入
+2. 筛选卡片：搜索 + 频道 + 类型 + 状态 + 日期 + 排序
+3. 批量操作卡片：全选 + 提交 + 进度条
+4. 内容列表：按频道分组卡片 + 分页
+5. 导航：与 notes.html 互通链接
+
+**OPML 导入格式**：
+标准 OPML 文件（播客客户端导出格式），包含 `<outline xmlUrl="..." text="...">` 元素。
+
+### 10.7 核心流程
+
+**Feed Item 获取（两阶段）**：
+1. 获取 & 存储：遍历 feeds → fetch RSS → 解析 XML（提取 thumbnail）→ 新 items 存入 feedItems（status='new'）
+2. 用户选择 & 提交：勾选 items → submitFeedItems（fire-and-forget）→ 按钮置灰 1.5 秒后重置刷新列表；后台逐条 LinkSubmitter.submitLink() → 更新 status + 预存标签
+
+**标签策略（两步）**：
+1. 提交时预存：获得 noteId 后，将 [type, channelName] 存入 pendingTags
+2. 导出时合并：生成 Markdown 时从 pendingTags 查找匹配 noteId，合并到 note.tags
+
+**YouTube URL 转换**：
+- `/channel/UC...` → 直接拼接 RSS URL
+- `/@handle` → fetch 页面 → 正则提取 channel_id → 拼接
+
+**数据迁移**：现有 feeds 自动补充 type（URL 模式检测）和 channelName（默认=name）。
+
+### 10.8 实施顺序
+
+1. feed-manager.js 重构（数据模型 + item 存储 + OPML + YouTube 转换 + 迁移 + addFeed 自动获取）
+2. tag-manager.js 新建
+3. background.js 新增消息处理器
+4. subscription-shared.js 新建
+5. popup.html/popup.js Tab 系统 + 订阅 Tab
+6. subscriptions.html/subscriptions.js 独立页面
+7. notes.html 导航链接
+8. shared.js 导出时标签合并
+9. options.html/options.js 更新
+10. manifest.json 版本号
+
+---
+
+## 11. 可能的后续迭代方向
 
 - [ ] vault-writer.js 支持子文件夹嵌套创建（当前 `fullPath` 含 `/` 时 vault 写入不会自动创建中间目录）
 - [x] 增量导出：记录已导出笔记 ID，下次只导出新增/修改的（v1.2.0 ExportTracker）

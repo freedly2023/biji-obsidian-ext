@@ -395,11 +395,28 @@
         });
 
       var chain = Promise.resolve();
+
+      // Fetch missing content for notes with empty content
+      var needContent = notes.some(function (n) {
+        return !n.content || n.content.trim().length === 0;
+      });
+      if (needContent) {
+        ptxtEl.textContent = '\u6B63\u5728\u83B7\u53D6\u7B14\u8BB0\u5185\u5BB9...';
+        chain = chain.then(function () {
+          return ExportEngine.fetchMissingContent(notes, function (done, total) {
+            ptxtEl.textContent =
+              '\u6B63\u5728\u83B7\u53D6\u5185\u5BB9 ' + done + '/' + total + '...';
+          });
+        });
+      }
+
       if (needTranscripts) {
-        ptxtEl.textContent = '\u6B63\u5728\u83B7\u53D6\u539F\u59CB\u6587\u5B57\u8BB0\u5F55...';
-        chain = ExportEngine.fetchMissingTranscripts(notes, function (done, total) {
-          ptxtEl.textContent =
-            '\u6B63\u5728\u83B7\u53D6\u6587\u5B57\u8BB0\u5F55 ' + done + '/' + total + '...';
+        chain = chain.then(function () {
+          ptxtEl.textContent = '\u6B63\u5728\u83B7\u53D6\u539F\u59CB\u6587\u5B57\u8BB0\u5F55...';
+          return ExportEngine.fetchMissingTranscripts(notes, function (done, total) {
+            ptxtEl.textContent =
+              '\u6B63\u5728\u83B7\u53D6\u6587\u5B57\u8BB0\u5F55 ' + done + '/' + total + '...';
+          });
         });
       }
 
@@ -458,11 +475,28 @@
         });
 
       var chain = Promise.resolve();
+
+      // Fetch missing content for notes with empty content
+      var needContent = notes.some(function (n) {
+        return !n.content || n.content.trim().length === 0;
+      });
+      if (needContent) {
+        ptxtEl.textContent = '\u6B63\u5728\u83B7\u53D6\u7B14\u8BB0\u5185\u5BB9...';
+        chain = chain.then(function () {
+          return ExportEngine.fetchMissingContent(notes, function (done, total) {
+            ptxtEl.textContent =
+              '\u6B63\u5728\u83B7\u53D6\u5185\u5BB9 ' + done + '/' + total + '...';
+          });
+        });
+      }
+
       if (needTranscripts) {
-        ptxtEl.textContent = '\u6B63\u5728\u83B7\u53D6\u539F\u59CB\u6587\u5B57\u8BB0\u5F55...';
-        chain = ExportEngine.fetchMissingTranscripts(notes, function (done, total) {
-          ptxtEl.textContent =
-            '\u6B63\u5728\u83B7\u53D6\u6587\u5B57\u8BB0\u5F55 ' + done + '/' + total + '...';
+        chain = chain.then(function () {
+          ptxtEl.textContent = '\u6B63\u5728\u83B7\u53D6\u539F\u59CB\u6587\u5B57\u8BB0\u5F55...';
+          return ExportEngine.fetchMissingTranscripts(notes, function (done, total) {
+            ptxtEl.textContent =
+              '\u6B63\u5728\u83B7\u53D6\u6587\u5B57\u8BB0\u5F55 ' + done + '/' + total + '...';
+          });
         });
       }
 
@@ -636,4 +670,176 @@
       refresh();
     });
   });
+
+  // --- Tab switching ---
+  var tabBtns = document.querySelectorAll('.tab-btn');
+  var tabPanels = document.querySelectorAll('.tab-panel');
+
+  tabBtns.forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var tab = this.getAttribute('data-tab');
+      tabBtns.forEach(function (b) { b.classList.toggle('active', b.getAttribute('data-tab') === tab); });
+      tabPanels.forEach(function (p) {
+        p.classList.toggle('active', p.id === (tab === 'export' ? 'panelExport' : 'panelSubs'));
+      });
+      if (tab === 'subs') loadSubsTab();
+    });
+  });
+
+  // --- Subscription Tab Logic ---
+  var subsList = document.getElementById('subsList');
+  var subsSelectAll = document.getElementById('subsSelectAll');
+  var subsSelCount = document.getElementById('subsSelCount');
+  var btnSubmitSelected = document.getElementById('btnSubmitSelected');
+  var btnRefreshFeeds = document.getElementById('btnRefreshFeeds');
+  var subsRefreshStatus = document.getElementById('subsRefreshStatus');
+  var subsStatusFilter = document.getElementById('subsStatusFilter');
+  var btnOpenSubsPage = document.getElementById('btnOpenSubsPage');
+  var subsProgress = document.getElementById('subsProgress');
+  var subsPfill = document.getElementById('subsPfill');
+  var subsPtxt = document.getElementById('subsPtxt');
+
+  var subsItems = [];
+  var subsSelectedGuids = {};
+
+  if (btnOpenSubsPage) {
+    btnOpenSubsPage.addEventListener('click', function (e) {
+      e.preventDefault();
+      chrome.tabs.create({ url: chrome.runtime.getURL('subscriptions.html') });
+    });
+  }
+
+  function loadSubsTab() {
+    var filter = {};
+    var statusVal = subsStatusFilter ? subsStatusFilter.value : '';
+    if (statusVal) filter.status = statusVal;
+
+    chrome.runtime.sendMessage({ type: 'getFeedItems', filter: filter }, function (res) {
+      if (chrome.runtime.lastError) return;
+      subsItems = (res && res.items) || [];
+      renderSubsList();
+
+      // Auto-refresh if no items but feeds exist
+      if (subsItems.length === 0) {
+        chrome.runtime.sendMessage({ type: 'getFeeds' }, function (feedRes) {
+          if (chrome.runtime.lastError) return;
+          var feeds = (feedRes && feedRes.feeds) || [];
+          if (feeds.length > 0) {
+            if (subsRefreshStatus) subsRefreshStatus.textContent = '正在获取内容...';
+            chrome.runtime.sendMessage({ type: 'refreshAllFeedItems' }, function (refreshRes) {
+              if (subsRefreshStatus) subsRefreshStatus.textContent = '';
+              if (refreshRes && refreshRes.ok && refreshRes.result.newItems > 0) {
+                loadSubsTab();
+              }
+            });
+          }
+        });
+      }
+    });
+  }
+
+  function renderSubsList() {
+    if (!subsList) return;
+    var display = subsItems.slice(0, 30);
+    if (display.length === 0) {
+      subsList.innerHTML = '';
+      return;
+    }
+    var html = display.map(function (item) {
+      return SubShared.feedItemCardHtml(item, {
+        checked: !!subsSelectedGuids[item.guid],
+        showCheckbox: true,
+      });
+    }).join('');
+    if (subsItems.length > 30) {
+      html += '<div style="padding:8px;text-align:center;color:#999;font-size:11px">' +
+        '...还有 ' + (subsItems.length - 30) + ' 条，打开管理页面查看全部</div>';
+    }
+    subsList.innerHTML = html;
+
+    // Bind checkboxes
+    subsList.querySelectorAll('.feed-item-check').forEach(function (cb) {
+      cb.addEventListener('change', function () {
+        var guid = this.getAttribute('data-guid');
+        if (this.checked) {
+          subsSelectedGuids[guid] = true;
+        } else {
+          delete subsSelectedGuids[guid];
+        }
+        updateSubsSelectionUI();
+      });
+    });
+    updateSubsSelectionUI();
+  }
+
+  function updateSubsSelectionUI() {
+    var count = Object.keys(subsSelectedGuids).length;
+    if (subsSelCount) subsSelCount.textContent = '已选 ' + count + ' 条';
+    if (btnSubmitSelected) btnSubmitSelected.disabled = count === 0;
+    if (subsSelectAll) {
+      var displayed = subsItems.slice(0, 30);
+      subsSelectAll.checked = displayed.length > 0 && count === displayed.length;
+      subsSelectAll.indeterminate = count > 0 && count < displayed.length;
+    }
+  }
+
+  if (subsSelectAll) {
+    subsSelectAll.addEventListener('change', function () {
+      var checked = this.checked;
+      subsSelectedGuids = {};
+      if (checked) {
+        subsItems.slice(0, 30).forEach(function (item) {
+          subsSelectedGuids[item.guid] = true;
+        });
+      }
+      subsList.querySelectorAll('.feed-item-check').forEach(function (cb) {
+        cb.checked = checked;
+      });
+      updateSubsSelectionUI();
+    });
+  }
+
+  if (subsStatusFilter) {
+    subsStatusFilter.addEventListener('change', function () {
+      subsSelectedGuids = {};
+      loadSubsTab();
+    });
+  }
+
+  if (btnRefreshFeeds) {
+    btnRefreshFeeds.addEventListener('click', function () {
+      btnRefreshFeeds.disabled = true;
+      subsRefreshStatus.textContent = '刷新中...';
+      chrome.runtime.sendMessage({ type: 'refreshAllFeedItems' }, function (res) {
+        btnRefreshFeeds.disabled = false;
+        if (res && res.ok) {
+          subsRefreshStatus.textContent = '刷新完成，新增 ' + (res.result.newItems || 0) + ' 条';
+        } else {
+          subsRefreshStatus.textContent = '刷新失败: ' + ((res && res.error) || '未知错误');
+        }
+        loadSubsTab();
+        setTimeout(function () { subsRefreshStatus.textContent = ''; }, 3000);
+      });
+    });
+  }
+
+  if (btnSubmitSelected) {
+    btnSubmitSelected.addEventListener('click', function () {
+      var guids = Object.keys(subsSelectedGuids);
+      if (guids.length === 0) return;
+
+      btnSubmitSelected.disabled = true;
+      btnSubmitSelected.textContent = '正在提交中...';
+
+      // Fire-and-forget
+      chrome.runtime.sendMessage({ type: 'submitFeedItems', guids: guids }, function () {});
+      subsSelectedGuids = {};
+
+      setTimeout(function () {
+        btnSubmitSelected.textContent = '提交选中';
+        btnSubmitSelected.disabled = false;
+        loadSubsTab();
+      }, 1500);
+    });
+  }
 })();
