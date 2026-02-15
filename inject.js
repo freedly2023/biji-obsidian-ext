@@ -28,8 +28,10 @@
   function normalizeNote(raw) {
     return {
       id: raw.id || raw.noteId || raw.note_id || raw._id || '',
-      title: raw.title || raw.name || raw.subject || '',
-      content: raw.content || raw.text || raw.body || raw.html || raw.richText || '',
+      title: raw.title || raw.subject || '',
+      content: raw.content || raw.text || raw.body || raw.html || raw.richText ||
+        raw.rich_text || raw.result || raw.answer || raw.output || raw.summary ||
+        raw.aiContent || raw.ai_content || raw.description || '',
       rawTranscript:
         raw.transcript ||
         raw.rawText ||
@@ -83,12 +85,13 @@
       // Strict match: has ID + content/title
       if (
         (f.id || f.noteId || f.note_id || f._id) &&
-        (f.content || f.title || f.text || f.body || f.name || f.subject || f.html || f.richText)
+        (f.content || f.title || f.text || f.body || f.subject || f.html || f.richText)
       ) {
         return obj;
       }
-      // Relaxed match: large array where items have IDs
-      if (obj.length >= 5 && (f.id || f.noteId || f.note_id || f._id)) {
+      // Relaxed match: large array where items have IDs + content fields
+      if (obj.length >= 5 && (f.id || f.noteId || f.note_id || f._id) &&
+          (f.content || f.title || f.text || f.body || f.subject || f.html || f.richText)) {
         log('Relaxed match: array of', obj.length, 'items with IDs at depth', depth);
         log('  First item keys:', Object.keys(f));
         return obj;

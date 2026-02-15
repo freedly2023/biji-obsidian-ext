@@ -37,6 +37,7 @@
     // Feed management
     feedAutoCheck: false,
     feedCheckInterval: 60,
+    feedAutoSubmit: true,
   };
 
   // DOM references — existing
@@ -82,6 +83,7 @@
   var feedCheckInterval = document.getElementById('feedCheckInterval');
   var btnCheckFeedsNow = document.getElementById('btnCheckFeedsNow');
   var feedCheckStatus = document.getElementById('feedCheckStatus');
+  var feedAutoSubmit = document.getElementById('feedAutoSubmit');
 
   // --- Generic radio group handler ---
   // Makes radio-option labels toggle .selected class on click
@@ -357,6 +359,7 @@
       // Feed management
       feedAutoCheck.checked = !!s.feedAutoCheck;
       feedCheckInterval.value = s.feedCheckInterval || 60;
+      if (feedAutoSubmit) feedAutoSubmit.checked = s.feedAutoSubmit !== false;
 
       // Also sync the legacy discoveryMode key used by popup
       chrome.storage.local.set({ discoveryMode: s.discoveryMode });
@@ -396,6 +399,7 @@
       // Feed management
       feedAutoCheck: feedAutoCheck.checked,
       feedCheckInterval: parseInt(feedCheckInterval.value, 10) || 60,
+      feedAutoSubmit: feedAutoSubmit ? feedAutoSubmit.checked : true,
     };
 
     chrome.storage.local.set(

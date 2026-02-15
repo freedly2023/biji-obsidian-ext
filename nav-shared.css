@@ -1,0 +1,32 @@
+/* Shared tab navigation bar — used by notes / subscriptions / options pages */
+.nav-tab-bar {
+  position: sticky;
+  top: 0;
+  z-index: 200;
+  background: #fff;
+  border-bottom: 2px solid #e9ecef;
+}
+.nav-tab-bar-inner {
+  max-width: 800px;
+  margin: 0 auto;
+  display: flex;
+  padding: 0 20px;
+}
+.nav-tab {
+  flex: 1;
+  display: block;
+  padding: 14px 0;
+  text-align: center;
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 500;
+  color: #888;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -2px;
+  transition: color 0.2s, border-color 0.2s;
+}
+.nav-tab:hover { color: #555; }
+.nav-tab.active {
+  color: #6c5ce7;
+  border-bottom-color: #6c5ce7;
+}

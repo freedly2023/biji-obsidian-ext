@@ -203,7 +203,8 @@
           statusHtml +
           '</td>' +
           '<td class="note-title-cell">' +
-          escapeHtml(t) +
+          '<a href="https://www.biji.com/note/' + escapeHtml(String(n.id)) + '" target="_blank">' +
+          escapeHtml(t) + '</a>' +
           '</td>' +
           '<td><span class="type-badge ' +
           typeCls +

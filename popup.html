@@ -443,6 +443,89 @@
         border-top: 1px solid #e9ecef;
         margin: 14px 0;
       }
+
+      /* Tab bar */
+      .tab-bar {
+        display: flex;
+        border-bottom: 2px solid #e9ecef;
+        background: #fafafa;
+      }
+      .tab-btn {
+        flex: 1;
+        padding: 10px;
+        border: none;
+        background: none;
+        cursor: pointer;
+        font-size: 13px;
+        font-weight: 500;
+        color: #888;
+        transition: all 0.2s;
+        border-bottom: 2px solid transparent;
+        margin-bottom: -2px;
+      }
+      .tab-btn:hover { color: #555; }
+      .tab-btn.active {
+        color: #6c5ce7;
+        border-bottom-color: #6c5ce7;
+      }
+      .tab-panel { display: none; }
+      .tab-panel.active { display: block; }
+
+      /* Subscription panel */
+      .subs-toolbar {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 10px;
+      }
+      .subs-toolbar select {
+        padding: 4px 8px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        font-size: 12px;
+      }
+      .subs-batch-bar {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 12px;
+        background: #f8f9fa;
+        border-radius: 6px;
+        margin-bottom: 8px;
+        font-size: 12px;
+      }
+      .subs-batch-bar label {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        cursor: pointer;
+      }
+      .subs-batch-bar .sel-count {
+        color: #6c5ce7;
+        font-weight: 600;
+        margin-left: auto;
+      }
+      .subs-list {
+        max-height: 320px;
+        overflow-y: auto;
+        border: 1px solid #e9ecef;
+        border-radius: 8px;
+        margin-bottom: 10px;
+      }
+      .subs-list:empty::after {
+        content: '暂无内容，点击刷新获取';
+        display: block;
+        padding: 20px;
+        text-align: center;
+        color: #999;
+        font-size: 13px;
+      }
+      .subs-status {
+        font-size: 11px;
+        color: #888;
+        text-align: center;
+        margin-top: 6px;
+      }
     </style>
   </head>
   <body>
@@ -453,6 +536,11 @@
       </div>
       <button class="btn-gear" id="btnSettings" title="设置">&#9881;</button>
     </div>
+    <div class="tab-bar">
+      <button class="tab-btn active" data-tab="export">笔记导出</button>
+      <button class="tab-btn" data-tab="subs">订阅管理</button>
+    </div>
+    <div class="tab-panel active" id="panelExport">
     <div class="body">
       <!-- Step 1: Fetch notes -->
       <div class="step-label"><span class="step-num">1</span> 获取笔记</div>
@@ -551,6 +639,37 @@
 
       <div class="tip" id="tip">打开 biji.com 并浏览笔记，插件会自动捕获数据。</div>
     </div>
+    </div><!-- /panelExport -->
+
+    <div class="tab-panel" id="panelSubs">
+    <div class="body">
+      <div class="subs-toolbar">
+        <button class="btn btn-primary" id="btnRefreshFeeds" style="padding:6px 12px;font-size:12px">刷新</button>
+        <span id="subsRefreshStatus" style="font-size:11px;color:#888;flex:1"></span>
+        <select id="subsStatusFilter">
+          <option value="">全部</option>
+          <option value="new">未提交</option>
+          <option value="submitted">已提交</option>
+        </select>
+        <a href="#" id="btnOpenSubsPage" style="font-size:11px;color:#6c5ce7;text-decoration:none;flex-shrink:0">管理订阅</a>
+      </div>
+
+      <div class="subs-batch-bar">
+        <label><input type="checkbox" id="subsSelectAll" style="accent-color:#6c5ce7"> 全选</label>
+        <span class="sel-count" id="subsSelCount">已选 0 条</span>
+        <button class="btn btn-primary" id="btnSubmitSelected" style="padding:4px 10px;font-size:11px" disabled>提交选中</button>
+      </div>
+
+      <div class="subs-list" id="subsList"></div>
+      <div class="subs-status" id="subsStatus"></div>
+
+      <!-- Subs progress -->
+      <div class="progress" id="subsProgress">
+        <div class="pbar"><div class="pfill" id="subsPfill"></div></div>
+        <div class="ptxt" id="subsPtxt"></div>
+      </div>
+    </div>
+    </div><!-- /panelSubs -->
 
     <script src="lib/jszip.min.js"></script>
     <script src="lib/FileSaver.min.js"></script>
@@ -558,6 +677,7 @@
     <script src="lib/docx.min.js"></script>
     <script src="vault-writer.js"></script>
     <script src="shared.js"></script>
+    <script src="subscription-shared.js"></script>
     <script src="popup.js"></script>
   </body>
 </html>

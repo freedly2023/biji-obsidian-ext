@@ -608,8 +608,15 @@
     },
 
     generatePdf: function (note, settings) {
-      // Main note PDF: use server-side API for better quality
-      return ServerExporter.exportNote(note.id, 'pdf');
+      var self = this;
+      // Try server-side API first; fall back to local html2pdf generation
+      return ServerExporter.exportNote(note.id, 'pdf').catch(function (err) {
+        console.warn('[Biji Ext] Server PDF failed, using local generation:', err.message);
+        var noteHtml = self.noteToHtml(note, settings);
+        return self._prepareImagesHtml(note, settings).then(function (imgHtml) {
+          return self._generateLocalPdf(noteHtml + imgHtml);
+        });
+      });
     },
 
     // Local PDF generation for transcripts (uses html2pdf.js)
@@ -620,9 +627,10 @@
 
       var container = document.createElement('div');
       container.innerHTML = htmlContent;
-      // Must be in normal flow for html2canvas to render; hide off-screen
+      container.setAttribute('data-pdf-render', '1');
+      // Hidden behind all content; onclone fixes layout for html2canvas
       container.style.position = 'fixed';
-      container.style.left = '-9999px';
+      container.style.left = '0';
       container.style.top = '0';
       container.style.width = '700px';
       container.style.zIndex = '-9999';
@@ -630,26 +638,68 @@
       container.style.pointerEvents = 'none';
       document.body.appendChild(container);
 
+      var containerHeight = container.scrollHeight;
+      var containerWidth = container.offsetWidth || 700;
+
       var opt = {
         margin: [10, 10, 10, 10],
         filename: 'note.pdf',
         image: { type: 'jpeg', quality: 0.95 },
-        html2canvas: { scale: 2, useCORS: true, logging: false, windowWidth: 700 },
+        html2canvas: {
+          scale: 2,
+          useCORS: true,
+          logging: false,
+          backgroundColor: '#ffffff',
+          windowWidth: containerWidth,
+          windowHeight: containerHeight,
+          width: containerWidth,
+          height: containerHeight,
+          scrollX: 0,
+          scrollY: 0,
+          // Fix layout in the cloned document so html2canvas renders
+          // correctly even when the host page viewport is narrow (e.g. 380px popup)
+          onclone: function (clonedDoc) {
+            var el = clonedDoc.querySelector('[data-pdf-render]');
+            if (el) {
+              el.style.position = 'static';
+              el.style.left = 'auto';
+              el.style.top = 'auto';
+              el.style.zIndex = 'auto';
+              el.style.width = containerWidth + 'px';
+              el.style.minHeight = containerHeight + 'px';
+            }
+            clonedDoc.body.style.width = containerWidth + 'px';
+            clonedDoc.body.style.minWidth = containerWidth + 'px';
+            clonedDoc.body.style.minHeight = containerHeight + 'px';
+            clonedDoc.body.style.overflow = 'visible';
+            clonedDoc.body.style.background = '#ffffff';
+            clonedDoc.documentElement.style.width = containerWidth + 'px';
+            clonedDoc.documentElement.style.minHeight = containerHeight + 'px';
+            clonedDoc.documentElement.style.overflow = 'visible';
+            var h2pContainer = clonedDoc.getElementById('html2pdf__container');
+            if (h2pContainer) {
+              h2pContainer.style.overflow = 'visible';
+              h2pContainer.style.width = '700px';
+            }
+          },
+        },
         jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
       };
 
-      return html2pdf()
-        .set(opt)
-        .from(container)
-        .outputPdf('blob')
-        .then(function (blob) {
+      return new Promise(function (resolve) {
+        requestAnimationFrame(function () { setTimeout(resolve, 0); });
+      }).then(function () {
+        return html2pdf().set(opt).from(container).outputPdf('blob').then(function (blob) {
           document.body.removeChild(container);
+          if (!blob || blob.size < 1024) {
+            throw new Error('Generated PDF appears empty (' + (blob ? blob.size : 0) + ' bytes)');
+          }
           return blob;
-        })
-        .catch(function (err) {
+        }).catch(function (err) {
           if (container.parentNode) document.body.removeChild(container);
           throw err;
         });
+      });
     },
 
     generateTranscriptPdf: function (note, settings) {
@@ -899,8 +949,102 @@
     },
 
     generateDocx: function (note, settings) {
-      // Main note DOCX: use server-side API for better quality
-      return ServerExporter.exportNote(note.id, 'docx');
+      var self = this;
+      // Try server-side API first; fall back to local docx generation
+      return ServerExporter.exportNote(note.id, 'docx').catch(function (err) {
+        console.warn('[Biji Ext] Server DOCX failed, using local generation:', err.message);
+        if (typeof docx === 'undefined') {
+          return Promise.reject(new Error('docx library not loaded'));
+        }
+        var children = self._buildNoteChildren(note, settings);
+        var doc = new docx.Document({
+          sections: [{ properties: {}, children: children }],
+        });
+        return docx.Packer.toBlob(doc);
+      });
+    },
+
+    // Build docx paragraphs for a main note (mirrors _buildTranscriptChildren pattern)
+    _buildNoteChildren: function (note, settings) {
+      var self = this;
+      var children = [];
+
+      // Title
+      if (note.title) {
+        children.push(
+          new docx.Paragraph({
+            children: [
+              new docx.TextRun({
+                text: note.title,
+                bold: true,
+                size: 36,
+                font: self.FONT,
+              }),
+            ],
+            spacing: { after: 200 },
+          })
+        );
+      }
+
+      // Date metadata
+      var date = MD.formatDate(note.createdAt);
+      if (date) {
+        children.push(
+          new docx.Paragraph({
+            children: [
+              new docx.TextRun({
+                text: date + ' | ' + (note.type || 'text'),
+                size: 18,
+                font: self.FONT,
+                color: '888888',
+              }),
+            ],
+            spacing: { after: 200 },
+          })
+        );
+      }
+
+      // Content
+      var content = note.content || '';
+      if (content.includes('<') && content.includes('>')) {
+        self._htmlToDocxChildren(content).forEach(function (c) { children.push(c); });
+      } else if (MD._looksLikeMarkdown(content)) {
+        self._htmlToDocxChildren(MD.mdToHtml(content)).forEach(function (c) { children.push(c); });
+      } else {
+        self._plainTextToChildren(content, note, settings).forEach(function (c) { children.push(c); });
+      }
+
+      // Merged transcript
+      if (settings.transcriptMode === 'merged' && note.rawTranscript) {
+        // Separator
+        children.push(
+          new docx.Paragraph({
+            children: [new docx.TextRun({ text: '\u2500'.repeat(50), color: 'CCCCCC', size: 16 })],
+            spacing: { before: 200, after: 100 },
+          })
+        );
+        children.push(
+          new docx.Paragraph({
+            children: [
+              new docx.TextRun({
+                text: '\u539F\u59CB\u6587\u5B57\u8BB0\u5F55',
+                bold: true,
+                size: 28,
+                font: self.FONT,
+              }),
+            ],
+            spacing: { after: 120 },
+          })
+        );
+        var rawContent = note.rawTranscript;
+        if (rawContent.includes('<') && rawContent.includes('>')) {
+          self._htmlToDocxChildren(rawContent).forEach(function (c) { children.push(c); });
+        } else {
+          self._plainTextToChildren(rawContent, note, settings).forEach(function (c) { children.push(c); });
+        }
+      }
+
+      return children;
     },
 
     // Local DOCX generation for transcripts
@@ -1006,6 +1150,86 @@
 
   // --- Export Engine (shared export logic for popup.js and notes.js) ---
   var ExportEngine = {
+    // Merge pending tags from subscriptions into notes before export
+    mergePendingTags: function (notes) {
+      return new Promise(function (resolve) {
+        chrome.runtime.sendMessage({ type: 'getPendingTags' }, function (res) {
+          if (chrome.runtime.lastError || !res || !res.tags) {
+            resolve(notes);
+            return;
+          }
+          var pendingTags = res.tags;
+          notes.forEach(function (note) {
+            var entry = pendingTags[note.id];
+            if (entry && entry.tags && entry.tags.length > 0) {
+              var existing = (note.tags || []).map(function (t) {
+                return typeof t === 'string' ? t : t.name || t.label || '';
+              });
+              entry.tags.forEach(function (tag) {
+                if (tag && existing.indexOf(tag) === -1) {
+                  existing.push(tag);
+                }
+              });
+              note.tags = existing;
+            }
+          });
+          resolve(notes);
+        });
+      });
+    },
+
+    // Fetch missing content for notes via background.js detail API
+    fetchMissingContent: function (notes, onProgress) {
+      var missing = notes.filter(function (n) {
+        return !n.content || n.content.trim().length === 0;
+      });
+      if (missing.length === 0) return Promise.resolve();
+
+      var done = 0;
+      var total = missing.length;
+
+      function fetchNext(index) {
+        if (index >= missing.length) return Promise.resolve();
+        var note = missing[index];
+        done++;
+        if (onProgress) onProgress(done, total);
+
+        return new Promise(function (resolve) {
+          chrome.runtime.sendMessage(
+            {
+              type: 'fetchContent',
+              noteId: note.id,
+              noteType: note.noteType || note.type || '',
+            },
+            function (res) {
+              if (chrome.runtime.lastError) {
+                console.warn(
+                  '[Biji Ext] Content fetch error for',
+                  note.id,
+                  chrome.runtime.lastError
+                );
+                resolve();
+                return;
+              }
+              if (res && res.content) {
+                note.content = res.content;
+                // Persist to storage
+                chrome.runtime.sendMessage({
+                  type: 'storeVueNotes',
+                  notes: [{ id: note.id, content: res.content }],
+                });
+              }
+              resolve();
+            }
+          );
+        }).then(function () {
+          return fetchNext(index + 1);
+        });
+      }
+
+      return fetchNext(0);
+    },
+
     // Fetch missing rawTranscript for voice notes via background.js detail API
     fetchMissingTranscripts: function (notes, onProgress) {
       var missing = notes.filter(function (n) {
@@ -1094,7 +1318,7 @@
               .then(function (blob) {
                 folder.file(tFn, blob);
               })
-              .catch(function () {
+              .catch(function (err) {
                 var fallback = tFn.replace('.pdf', '.md');
                 folder.file(fallback, MD.convertTranscript(note, settings));
               });
@@ -1122,14 +1346,15 @@
 
     // ZIP export: generate ZIP with notes in specified formats
     zipExport: function (notes, settings, formats, onProgress) {
+      return ExportEngine.mergePendingTags(notes).then(function (mergedNotes) {
       var zip = new JSZip();
       var folder = zip.folder('biji-export');
       var used = {};
-      var total = notes.length;
+      var total = mergedNotes.length;
 
       function processNote(index) {
-        if (index >= total) return ExportEngine._finishZip(zip, notes);
-        var note = notes[index];
+        if (index >= total) return ExportEngine._finishZip(zip, mergedNotes);
+        var note = mergedNotes[index];
 
         function processFormat(fmtIndex) {
           if (fmtIndex >= formats.length) {
@@ -1162,9 +1387,9 @@
             }
             genPromise = Promise.resolve(mdContent);
           } else if (format === 'pdf') {
-            genPromise = ServerExporter.exportNote(note.id, 'pdf');
+            genPromise = PDFConverter.generatePdf(note, settings);
           } else {
-            genPromise = ServerExporter.exportNote(note.id, 'docx');
+            genPromise = DOCXConverter.generateDocx(note, settings);
           }
 
           return genPromise
@@ -1189,6 +1414,7 @@
       }
 
       return processNote(0);
+      }); // end mergePendingTags.then
     },
 
     // Finish ZIP generation: compress and trigger download
@@ -1207,6 +1433,7 @@
 
     // Vault export: write notes as MD files to Obsidian vault
     vaultExport: function (notes, settings, onProgress) {
+      return ExportEngine.mergePendingTags(notes).then(function (mergedNotes) {
       var subfolder = settings.vaultSubfolder || 'biji-notes';
       var converter = {
         filename: function (note) {
@@ -1227,10 +1454,10 @@
         },
       };
 
-      return VaultWriter.writeAllNotes(notes, subfolder, converter, onProgress).then(
+      return VaultWriter.writeAllNotes(mergedNotes, subfolder, converter, onProgress).then(
         function (result) {
           if (settings.transcriptMode === 'separate') {
-            var notesWithContent = notes.filter(function (n) {
+            var notesWithContent = mergedNotes.filter(function (n) {
               return !!n.content;
             });
             if (notesWithContent.length > 0) {
@@ -1260,6 +1487,7 @@
           return result;
         }
       );
+      }); // end mergePendingTags.then
     },
   };
   window.ExportEngine = ExportEngine;

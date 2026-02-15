@@ -13,6 +13,7 @@
   var PLATFORMS = {
     youtube: {
       host: 'www.youtube.com',
+      platformType: 'youtube',
       titleSelectors: [
         'ytd-watch-metadata #title',
         '#above-the-fold #title',
@@ -28,9 +29,14 @@
         );
         return el ? el.textContent.trim() : document.title;
       },
+      getChannelName: function () {
+        var el = document.querySelector('#owner #channel-name a, ytd-channel-name a');
+        return el ? el.textContent.trim() : '';
+      },
     },
     bilibili: {
       host: 'www.bilibili.com',
+      platformType: 'bilibili',
       titleSelectors: [
         '#viewbox_report .video-title',
         '.video-title',
@@ -43,9 +49,14 @@
         );
         return el ? el.textContent.trim() : document.title;
       },
+      getChannelName: function () {
+        var el = document.querySelector('.up-name, #v_upinfo .name a');
+        return el ? el.textContent.trim() : '';
+      },
     },
     xiaoyuzhou: {
       host: 'www.xiaoyuzhoufm.com',
+      platformType: 'podcast',
       titleSelectors: [
         '.episode-title',
         'h1',
@@ -54,6 +65,10 @@
       getPageTitle: function () {
         var el = document.querySelector('.episode-title, h1');
         return el ? el.textContent.trim() : document.title;
+      },
+      getChannelName: function () {
+        var el = document.querySelector('.podcast-title, .podcast-name a');
+        return el ? el.textContent.trim() : '';
       },
     },
   };
@@ -86,6 +101,7 @@
   function injectButton(platform) {
     // Check settings first — is button injection enabled?
     chrome.storage.local.get('settings', function (data) {
+      if (chrome.runtime.lastError) return;  // context invalidated
       var s = data.settings || {};
       if (s.enableInjectBtn === false) return;
 
@@ -134,12 +150,20 @@
         var url = platform.getPageUrl();
         var title = platform.getPageTitle();
 
+        // Collect tags: platform type + channel name
+        var tags = [];
+        if (platform.platformType) tags.push(platform.platformType);
+        if (platform.getChannelName) {
+          var ch = platform.getChannelName();
+          if (ch) tags.push(ch);
+        }
+
         // Set loading state
         btn.classList.add('biji-ext-loading');
         btn.innerHTML = '<span class="biji-ext-spinner"></span> 提交中...';
 
         chrome.runtime.sendMessage(
-          { type: 'submitLink', url: url, title: title },
+          { type: 'submitLink', url: url, title: title, tags: tags },
           function (resp) {
             if (chrome.runtime.lastError) {
               btn.classList.remove('biji-ext-loading');
@@ -188,7 +212,8 @@
     }
 
     // Method 2: Periodic check as fallback
-    setInterval(function () {
+    var intervalId = setInterval(function () {
+      if (!chrome.runtime?.id) { clearInterval(intervalId); return; }
       if (location.href !== lastUrl) {
         lastUrl = location.href;
         setTimeout(function () { injectButton(platform); }, 1000);

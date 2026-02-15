@@ -2,6 +2,7 @@
 
 importScripts('link-submitter.js');
 importScripts('feed-manager.js');
+importScripts('tag-manager.js');
 
 var DEBUG = false;
 function log() {
@@ -34,11 +35,12 @@ function findNotesArray(obj, depth) {
     var f = obj[0];
     if (
       (f.id || f.noteId || f.note_id || f._id) &&
-      (f.content || f.title || f.text || f.body || f.name || f.subject || f.html || f.richText)
+      (f.content || f.title || f.text || f.body || f.subject || f.html || f.richText)
     ) {
       return obj;
     }
-    if (obj.length >= 5 && (f.id || f.noteId || f.note_id || f._id)) {
+    if (obj.length >= 5 && (f.id || f.noteId || f.note_id || f._id) &&
+        (f.content || f.title || f.text || f.body || f.subject || f.html || f.richText)) {
       return obj;
     }
   }
@@ -82,8 +84,10 @@ function findNotesArray(obj, depth) {
 function normalizeNote(raw) {
   return {
     id: raw.id || raw.noteId || raw.note_id || raw._id || '',
-    title: raw.title || raw.name || raw.subject || '',
-    content: raw.content || raw.text || raw.body || raw.html || raw.richText || '',
+    title: raw.title || raw.subject || '',
+    content: raw.content || raw.text || raw.body || raw.html || raw.richText ||
+      raw.rich_text || raw.result || raw.answer || raw.output || raw.summary ||
+      raw.aiContent || raw.ai_content || raw.description || '',
     rawTranscript:
       raw.transcript ||
       raw.rawText ||
@@ -298,7 +302,6 @@ function fetchNoteTranscript(noteId, noteType) {
           return tryUrl(index + 1);
         }
         return resp.json().then(function (data) {
-          log('Detail API response keys:', JSON.stringify(Object.keys(data)));
           var transcript = extractTranscript(data);
           if (transcript) {
             log('Transcript found, length:', transcript.length);
@@ -315,6 +318,85 @@ function fetchNoteTranscript(noteId, noteType) {
   }
 
   return tryUrl(0);
+}
+
+// Fetch note detail and extract content for notes with empty content
+function fetchNoteContent(noteId, noteType) {
+  if (!capturedApiHeaders) {
+    return Promise.resolve(null);
+  }
+
+  var typeSegment = '';
+  if (noteType === 'link') typeSegment = '/links';
+  else if (noteType === 'voice') typeSegment = '/voices';
+  else if (noteType === 'ai') typeSegment = '/ais';
+
+  var urls = [];
+  if (typeSegment) {
+    urls.push(BIJI_API_BASE + '/' + noteId + typeSegment + '/detail');
+  }
+  urls.push(BIJI_API_BASE + '/' + noteId + '/detail');
+
+  var headers = Object.assign({}, capturedApiHeaders);
+
+  function tryUrl(index) {
+    if (index >= urls.length) return Promise.resolve(null);
+    var url = urls[index];
+    log('Fetching content from:', url);
+
+    return fetch(url, { method: 'GET', headers: headers })
+      .then(function (resp) {
+        if (!resp.ok) {
+          log('Detail API returned HTTP', resp.status, 'for', url);
+          return tryUrl(index + 1);
+        }
+        return resp.json().then(function (data) {
+          log('Detail response keys:', JSON.stringify(Object.keys(data)));
+          var content = extractContent(data);
+          if (content) {
+            log('Content found, length:', content.length);
+            return content;
+          }
+          log('No content found in response from', url);
+          return tryUrl(index + 1);
+        });
+      })
+      .catch(function (e) {
+        console.warn('[Biji Ext] Detail API error:', e.message);
+        return tryUrl(index + 1);
+      });
+  }
+
+  return tryUrl(0);
+}
+
+// Extract note content from detail API response
+function extractContent(obj) {
+  if (!obj || typeof obj !== 'object') return null;
+
+  // The detail response is typically { c: { ... note fields ... } } or { data: { ... } }
+  var note = obj.c || obj.data || obj;
+
+  // Direct content fields
+  var candidates = [
+    note.content, note.text, note.body, note.html, note.richText,
+    note.rich_text, note.result, note.answer, note.output, note.summary,
+    note.aiContent, note.ai_content, note.aiResult, note.ai_result,
+    note.generatedContent, note.generated_content, note.response,
+    note.detail, note.description, note.note_content,
+  ];
+  for (var i = 0; i < candidates.length; i++) {
+    if (typeof candidates[i] === 'string' && candidates[i].trim().length > 0) {
+      return candidates[i];
+    }
+  }
+
+  // Check nested note object (e.g., { c: { note: { content: ... } } })
+  if (note.note && typeof note.note === 'object') {
+    return extractContent({ c: note.note });
+  }
+
+  return null;
 }
 
 // Recursively search JSON for transcript content
@@ -335,6 +417,14 @@ function extractTranscript(obj) {
   // Strategy 2: look for arrays of paragraph-like objects with timestamps
   var paragraphs = findParagraphArray(obj, 0);
   if (paragraphs) return paragraphs;
+
+  // Strategy 3: fall back to long content from detail API response
+  // Detail API returns { c: { content: "..." } } — for link/voice notes
+  // this is the raw transcript text (not the AI summary)
+  var note = obj.c || obj.data || obj;
+  if (note && typeof note.content === 'string' && note.content.length > 200) {
+    return note.content;
+  }
 
   return null;
 }
@@ -445,6 +535,13 @@ function createExportTask(noteId, type) {
       return resp.json();
     })
     .then(function (data) {
+      log('Export create response:', JSON.stringify(data).substring(0, 500));
+      // Check API-level status code before extracting task ID
+      if (data && data.h && data.h.c !== 0) {
+        var errMsg = (data.h && data.h.e) || 'Unknown API error';
+        log('Export API error:', data.h.c, errMsg);
+        throw new Error('Export API error: ' + errMsg + ' (code ' + data.h.c + ')');
+      }
       // Extract task ID from response — try common paths
       var taskId = null;
       if (data && data.c && data.c.id) {
@@ -459,7 +556,6 @@ function createExportTask(noteId, type) {
         taskId = data.c;
       }
       if (!taskId) {
-        log('Export create response:', JSON.stringify(data).substring(0, 500));
         throw new Error('Could not find task ID in export response');
       }
       log('Export task created:', taskId);
@@ -489,6 +585,12 @@ function pollExportTask(taskId) {
         return resp.json();
       })
       .then(function (data) {
+        // Check API-level status code
+        if (data && data.h && data.h.c !== 0) {
+          var errMsg = (data.h && data.h.e) || 'Unknown API error';
+          log('Export poll API error:', data.h.c, errMsg);
+          throw new Error('Export poll error: ' + errMsg + ' (code ' + data.h.c + ')');
+        }
         var c = data.c || data.data || data;
         if (c.finished || c.status === 'finished' || c.status === 'done') {
           var accessUrl = c.access_url || c.download_url || c.url || '';
@@ -564,6 +666,12 @@ chrome.runtime.onMessage.addListener(function (msg, sender, sendResponse) {
       sendResponse({ noteId: msg.noteId, transcript: transcript });
     });
     return true; // async sendResponse
+  } else if (msg.type === 'fetchContent') {
+    // Fetch content for a single note via detail API
+    fetchNoteContent(msg.noteId, msg.noteType).then(function (content) {
+      sendResponse({ noteId: msg.noteId, content: content });
+    });
+    return true; // async sendResponse
   } else if (msg.type === 'exportNote') {
     exportNoteViaAPI(msg.noteId, msg.format)
       .then(function (result) {
@@ -585,6 +693,11 @@ chrome.runtime.onMessage.addListener(function (msg, sender, sendResponse) {
     // Submit a link to biji.com
     LinkSubmitter.submitLink(msg.url, msg.title, capturedApiHeaders)
       .then(function (result) {
+        // Store pending tags if we got a noteId and tags were provided
+        var noteId = result && result.noteId;
+        if (noteId && msg.tags && msg.tags.length > 0 && typeof TagManager !== 'undefined') {
+          TagManager.storePendingTags(noteId, msg.tags);
+        }
         sendResponse({ ok: true, data: result });
       })
       .catch(function (err) {
@@ -629,6 +742,62 @@ chrome.runtime.onMessage.addListener(function (msg, sender, sendResponse) {
       sendResponse({ ok: true, result: result });
     }).catch(function (err) {
       sendResponse({ ok: false, error: err.message });
+    });
+    return true;
+  } else if (msg.type === 'getFeedItems') {
+    FeedManager.getFeedItems(msg.filter).then(function (items) {
+      sendResponse({ items: items });
+    });
+    return true;
+  } else if (msg.type === 'submitFeedItems') {
+    FeedManager.submitFeedItems(msg.guids, capturedApiHeaders).then(function (results) {
+      sendResponse({ ok: true, results: results });
+    }).catch(function (err) {
+      sendResponse({ ok: false, error: err.message });
+    });
+    return true;
+  } else if (msg.type === 'refreshAllFeedItems') {
+    FeedManager.refreshAllFeedItems().then(function (result) {
+      sendResponse({ ok: true, result: result });
+    }).catch(function (err) {
+      sendResponse({ ok: false, error: err.message });
+    });
+    return true;
+  } else if (msg.type === 'refreshFeedItems') {
+    FeedManager.refreshFeedItems(msg.feedId).then(function (result) {
+      sendResponse({ ok: true, result: result });
+    }).catch(function (err) {
+      sendResponse({ ok: false, error: err.message });
+    });
+    return true;
+  } else if (msg.type === 'editFeed') {
+    FeedManager.editFeed(msg.feedId, msg.updates).then(function (feed) {
+      sendResponse({ ok: true, feed: feed });
+    }).catch(function (err) {
+      sendResponse({ ok: false, error: err.message });
+    });
+    return true;
+  } else if (msg.type === 'importFeedsOpml') {
+    try {
+      FeedManager.importFeedsOpml(msg.opmlText).then(function (result) {
+        sendResponse({ ok: true, result: result });
+      }).catch(function (err) {
+        sendResponse({ ok: false, error: err.message });
+      });
+    } catch (err) {
+      sendResponse({ ok: false, error: err.message });
+    }
+    return true;
+  } else if (msg.type === 'convertYoutubeUrl') {
+    FeedManager.convertYoutubeUrl(msg.url).then(function (rssUrl) {
+      sendResponse({ ok: true, rssUrl: rssUrl });
+    }).catch(function (err) {
+      sendResponse({ ok: false, error: err.message });
+    });
+    return true;
+  } else if (msg.type === 'getPendingTags') {
+    TagManager.getPendingTags().then(function (tags) {
+      sendResponse({ tags: tags });
     });
     return true;
   }

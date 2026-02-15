@@ -17,22 +17,6 @@
         min-height: 100vh;
       }
 
-      .header {
-        background: #6c5ce7;
-        color: #fff;
-        padding: 24px 0;
-        text-align: center;
-      }
-      .header h1 {
-        font-size: 22px;
-        font-weight: 600;
-      }
-      .header p {
-        font-size: 13px;
-        opacity: 0.8;
-        margin-top: 6px;
-      }
-
       .container {
         max-width: 800px;
         margin: 24px auto;
@@ -397,10 +381,14 @@
     </style>
   </head>
   <body>
-    <div class="header">
-      <h1>Biji to Obsidian — 设置</h1>
-      <p>配置导出方式、Vault 路径和高级选项</p>
-    </div>
+    <link rel="stylesheet" href="nav-shared.css" />
+    <nav class="nav-tab-bar">
+      <div class="nav-tab-bar-inner">
+        <a class="nav-tab" href="notes.html">笔记管理</a>
+        <a class="nav-tab" href="subscriptions.html">订阅管理</a>
+        <a class="nav-tab active" href="options.html">设置</a>
+      </div>
+    </nav>
 
     <div class="container">
       <!-- Export Mode -->
@@ -715,6 +703,14 @@
           </div>
         </div>
 
+        <div class="checkbox-row" style="margin-top: 8px">
+          <input type="checkbox" id="feedAutoSubmit" checked />
+          <div class="cb-text">
+            <div class="cb-label">自动提交</div>
+            <div class="cb-hint">检查到新条目时自动提交到笔记（关闭后仅存储，需手动选择提交）</div>
+          </div>
+        </div>
+
         <div class="form-group" style="margin-top: 14px">
           <label for="feedCheckInterval">检查间隔</label>
           <select id="feedCheckInterval" class="inline-select">
@@ -731,6 +727,8 @@
         <div class="btn-row">
           <button class="btn btn-primary" id="btnCheckFeedsNow">立即检查</button>
           <span id="feedCheckStatus" style="font-size: 13px; color: #888; line-height: 38px"></span>
+          <a href="subscriptions.html" target="_blank"
+            style="margin-left: auto; font-size: 13px; color: #6c5ce7; text-decoration: none; line-height: 38px">打开订阅管理 →</a>
         </div>
       </div>
 

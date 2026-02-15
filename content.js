@@ -26,7 +26,9 @@
     try {
       var msg = JSON.parse(e.detail);
       // Forward to background service worker
-      chrome.runtime.sendMessage(msg);
+      chrome.runtime.sendMessage(msg, function () {
+        if (chrome.runtime.lastError) { /* context invalidated, ignore */ }
+      });
     } catch (err) {
       console.error(PREFIX, 'Failed to parse message:', err);
     }

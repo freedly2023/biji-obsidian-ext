@@ -17,22 +17,6 @@
         min-height: 100vh;
       }
 
-      .header {
-        background: #6c5ce7;
-        color: #fff;
-        padding: 24px 0;
-        text-align: center;
-      }
-      .header h1 {
-        font-size: 22px;
-        font-weight: 600;
-      }
-      .header p {
-        font-size: 13px;
-        opacity: 0.8;
-        margin-top: 6px;
-      }
-
       .container {
         max-width: 800px;
         margin: 24px auto;
@@ -297,6 +281,13 @@
         text-overflow: ellipsis;
         white-space: nowrap;
       }
+      .note-title-cell a {
+        color: #333;
+        text-decoration: none;
+      }
+      .note-title-cell a:hover {
+        color: #6c5ce7;
+      }
 
       /* Type badges */
       .type-badge {
@@ -390,10 +381,14 @@
     </style>
   </head>
   <body>
-    <div class="header">
-      <h1>Biji to Obsidian · 笔记管理</h1>
-      <p>搜索、筛选和批量导出笔记</p>
-    </div>
+    <link rel="stylesheet" href="nav-shared.css" />
+    <nav class="nav-tab-bar">
+      <div class="nav-tab-bar-inner">
+        <a class="nav-tab active" href="notes.html">笔记管理</a>
+        <a class="nav-tab" href="subscriptions.html">订阅管理</a>
+        <a class="nav-tab" href="options.html">设置</a>
+      </div>
+    </nav>
 
     <div class="container">
       <!-- Search & Filter -->
