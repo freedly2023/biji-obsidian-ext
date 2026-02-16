@@ -3,385 +3,11 @@
   <head>
     <meta charset="UTF-8" />
     <title>Biji to Obsidian — 设置</title>
-    <style>
-      * {
-        margin: 0;
-        padding: 0;
-        box-sizing: border-box;
-      }
-      body {
-        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-        font-size: 14px;
-        color: #333;
-        background: #f5f5f7;
-        min-height: 100vh;
-      }
-
-      .container {
-        max-width: 800px;
-        margin: 24px auto;
-        padding: 0 20px;
-      }
-
-      .card {
-        background: #fff;
-        border-radius: 12px;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
-        padding: 24px;
-        margin-bottom: 20px;
-      }
-      .card h2 {
-        font-size: 16px;
-        font-weight: 600;
-        color: #6c5ce7;
-        margin-bottom: 16px;
-        padding-bottom: 10px;
-        border-bottom: 2px solid #f0eef9;
-      }
-
-      .form-group {
-        margin-bottom: 18px;
-      }
-      .form-group:last-child {
-        margin-bottom: 0;
-      }
-      .form-group label {
-        display: block;
-        font-weight: 500;
-        margin-bottom: 6px;
-        color: #444;
-      }
-      .form-group .hint {
-        font-size: 12px;
-        color: #888;
-        margin-top: 4px;
-      }
-
-      input[type='text'],
-      input[type='number'],
-      select {
-        width: 100%;
-        padding: 10px 12px;
-        border: 1px solid #ddd;
-        border-radius: 8px;
-        font-size: 14px;
-        font-family: inherit;
-        transition: border-color 0.2s;
-      }
-      input[type='text']:focus,
-      input[type='number']:focus,
-      select:focus {
-        outline: none;
-        border-color: #6c5ce7;
-        box-shadow: 0 0 0 3px rgba(108, 92, 231, 0.1);
-      }
-
-      .radio-group {
-        display: flex;
-        gap: 16px;
-      }
-      .radio-group.vertical {
-        flex-direction: column;
-        gap: 10px;
-      }
-      .radio-option {
-        flex: 1;
-        padding: 14px 16px;
-        border: 2px solid #e9ecef;
-        border-radius: 10px;
-        cursor: pointer;
-        transition: all 0.2s;
-        position: relative;
-      }
-      .radio-option:hover {
-        border-color: #c4bbf0;
-      }
-      .radio-option.selected {
-        border-color: #6c5ce7;
-        background: #f8f7fd;
-      }
-      .radio-option input[type='radio'] {
-        position: absolute;
-        opacity: 0;
-        width: 0;
-        height: 0;
-      }
-      .radio-option .radio-label {
-        font-weight: 600;
-        font-size: 14px;
-        display: block;
-        margin-bottom: 4px;
-      }
-      .radio-option .radio-desc {
-        font-size: 12px;
-        color: #777;
-      }
-
-      .checkbox-row {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        padding: 10px 0;
-        border-bottom: 1px solid #f5f5f5;
-      }
-      .checkbox-row:last-child {
-        border-bottom: none;
-      }
-      .checkbox-row input[type='checkbox'] {
-        width: 18px;
-        height: 18px;
-        accent-color: #6c5ce7;
-        cursor: pointer;
-      }
-      .checkbox-row .cb-text {
-        flex: 1;
-      }
-      .checkbox-row .cb-label {
-        font-weight: 500;
-        color: #444;
-      }
-      .checkbox-row .cb-hint {
-        font-size: 12px;
-        color: #888;
-      }
-
-      /* Vault status */
-      .vault-status {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        padding: 12px 14px;
-        border-radius: 8px;
-        margin-bottom: 14px;
-        font-size: 13px;
-      }
-      .vault-status.connected {
-        background: #d4edda;
-        color: #155724;
-      }
-      .vault-status.needs-permission {
-        background: #fff3cd;
-        color: #856404;
-      }
-      .vault-status.not-selected {
-        background: #f8d7da;
-        color: #721c24;
-      }
-      .vault-status.unsupported {
-        background: #e9ecef;
-        color: #666;
-      }
-      .vault-status .dot {
-        width: 10px;
-        height: 10px;
-        border-radius: 50%;
-        flex-shrink: 0;
-      }
-      .vault-status.connected .dot {
-        background: #28a745;
-      }
-      .vault-status.needs-permission .dot {
-        background: #ffc107;
-      }
-      .vault-status.not-selected .dot {
-        background: #dc3545;
-      }
-      .vault-status.unsupported .dot {
-        background: #999;
-      }
-
-      .btn {
-        padding: 10px 20px;
-        border: none;
-        border-radius: 8px;
-        cursor: pointer;
-        font-size: 13px;
-        font-weight: 500;
-        font-family: inherit;
-        transition: opacity 0.2s;
-      }
-      .btn:hover {
-        opacity: 0.85;
-      }
-      .btn:disabled {
-        opacity: 0.5;
-        cursor: not-allowed;
-      }
-      .btn-primary {
-        background: #6c5ce7;
-        color: #fff;
-      }
-      .btn-secondary {
-        background: #e9ecef;
-        color: #333;
-      }
-      .btn-warning {
-        background: #ffc107;
-        color: #333;
-      }
-      .btn-danger {
-        background: #e74c3c;
-        color: #fff;
-      }
-
-      .btn-row {
-        display: flex;
-        gap: 10px;
-        margin-top: 10px;
-      }
-
-      .vault-section {
-        display: none;
-      }
-      .vault-section.visible {
-        display: block;
-      }
-
-      /* Actions footer */
-      .actions {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        gap: 12px;
-      }
-      .actions .left {
-        display: flex;
-        gap: 10px;
-      }
-
-      .status-msg {
-        font-size: 13px;
-        padding: 10px 14px;
-        border-radius: 8px;
-        margin-top: 16px;
-        display: none;
-      }
-      .status-msg.success {
-        display: block;
-        background: #d4edda;
-        color: #155724;
-      }
-      .status-msg.error {
-        display: block;
-        background: #f8d7da;
-        color: #721c24;
-      }
-
-      .inline-number {
-        width: 100px;
-        display: inline-block;
-      }
-      .inline-select {
-        width: 200px;
-        display: inline-block;
-      }
-
-      .custom-input-row {
-        margin-top: 10px;
-        display: none;
-      }
-      .custom-input-row.visible {
-        display: block;
-      }
-
-      .var-hint {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 6px;
-        margin-top: 8px;
-      }
-      .var-hint code {
-        background: #f0eef9;
-        padding: 2px 8px;
-        border-radius: 4px;
-        font-size: 12px;
-        color: #6c5ce7;
-      }
-
-      .fm-fields {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 0;
-      }
-
-      /* Feed list items */
-      .feed-item {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        padding: 10px 0;
-        border-bottom: 1px solid #f0f0f0;
-      }
-      .feed-item:last-child {
-        border-bottom: none;
-      }
-      .feed-item .feed-info {
-        flex: 1;
-        min-width: 0;
-      }
-      .feed-item .feed-name {
-        font-weight: 500;
-        color: #333;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-      }
-      .feed-item .feed-url {
-        font-size: 12px;
-        color: #888;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-      }
-      .feed-item .feed-last-check {
-        font-size: 11px;
-        color: #aaa;
-      }
-      .feed-item .feed-actions {
-        display: flex;
-        gap: 6px;
-        flex-shrink: 0;
-      }
-      .feed-item .feed-actions button {
-        padding: 4px 10px;
-        font-size: 12px;
-        border-radius: 6px;
-      }
-      .toggle-btn {
-        padding: 4px 10px;
-        border: 1px solid #ddd;
-        border-radius: 6px;
-        background: #fff;
-        cursor: pointer;
-        font-size: 12px;
-        font-family: inherit;
-      }
-      .toggle-btn.enabled {
-        color: #27ae60;
-        border-color: #27ae60;
-      }
-      .toggle-btn.disabled {
-        color: #999;
-        border-color: #ddd;
-      }
-      .delete-btn {
-        padding: 4px 10px;
-        border: 1px solid #e74c3c;
-        border-radius: 6px;
-        background: #fff;
-        color: #e74c3c;
-        cursor: pointer;
-        font-size: 12px;
-        font-family: inherit;
-      }
-      .delete-btn:hover {
-        background: #e74c3c;
-        color: #fff;
-      }
-    </style>
-  </head>
-  <body>
+    <link rel="stylesheet" href="styles/common.css" />
+    <link rel="stylesheet" href="styles/options.css" />
     <link rel="stylesheet" href="nav-shared.css" />
+  </head>
+  <body class="page-body">
     <nav class="nav-tab-bar">
       <div class="nav-tab-bar-inner">
         <a class="nav-tab" href="notes.html">笔记管理</a>
@@ -419,11 +45,11 @@
 
         <div class="btn-row">
           <button class="btn btn-primary" id="btnPickVault">选择 Vault 文件夹</button>
-          <button class="btn btn-warning" id="btnGrantPerm" style="display: none">授予权限</button>
+          <button class="btn btn-warning" id="btnGrantPerm" style="display:none">授予权限</button>
           <button class="btn btn-secondary" id="btnClearVault">清除 Vault</button>
         </div>
 
-        <div class="form-group" style="margin-top: 16px">
+        <div class="form-group mt-16">
           <label for="vaultSubfolder">子文件夹路径</label>
           <input type="text" id="vaultSubfolder" placeholder="biji-notes" value="biji-notes" />
           <div class="hint">笔记将导出到 vault 内的此子文件夹中</div>
@@ -539,7 +165,7 @@
               <span class="radio-desc">按月份分文件夹（如 2026-01/）</span>
             </label>
           </div>
-          <div class="hint" id="folderHint" style="margin-top: 8px; display: none">
+          <div class="hint" id="folderHint">
             命名模板中已包含 / 路径分隔符，文件夹分类将自动由模板决定。
           </div>
         </div>
@@ -632,9 +258,9 @@
           </div>
         </div>
 
-        <div class="form-group" style="margin-top: 14px">
+        <div class="form-group mt-14">
           <label for="tagPrefix">标签前缀</label>
-          <input type="text" id="tagPrefix" value="#" style="width: 80px" />
+          <input type="text" id="tagPrefix" value="#" />
           <div class="hint">标签使用的前缀符号</div>
         </div>
       </div>
@@ -651,7 +277,7 @@
           </div>
         </div>
 
-        <div class="form-group" style="margin-top: 14px">
+        <div class="form-group mt-14">
           <label>平台开关</label>
           <div class="checkbox-row">
             <input type="checkbox" id="injectBtnYoutube" checked />
@@ -667,11 +293,10 @@
           </div>
         </div>
 
-        <div class="form-group" style="margin-top: 14px">
+        <div class="form-group mt-14">
           <label>已发现的 API 端点</label>
           <input type="text" id="discoveredApiUrl" readonly
-            value="https://get-notes.luojilab.com/voicenotes/web/notes/stream"
-            style="background: #f5f5f7; color: #666" />
+            value="https://get-notes.luojilab.com/voicenotes/web/notes/stream" />
           <div class="hint">由 Discovery 模式自动发现（只读）</div>
         </div>
       </div>
@@ -682,15 +307,15 @@
 
         <div class="form-group">
           <label>添加订阅源</label>
-          <div style="display: flex; gap: 8px">
-            <input type="text" id="feedUrlInput" placeholder="输入 RSS/Atom 订阅源 URL" style="flex: 1" />
+          <div class="feed-add-row">
+            <input type="text" id="feedUrlInput" placeholder="输入 RSS/Atom 订阅源 URL" />
             <button class="btn btn-primary" id="btnAddFeed">添加</button>
           </div>
         </div>
 
         <div class="form-group">
           <label>订阅源列表</label>
-          <div id="feedList" style="min-height: 40px">
+          <div id="feedList">
             <div class="hint" id="feedEmptyHint">暂无订阅源</div>
           </div>
         </div>
@@ -703,7 +328,7 @@
           </div>
         </div>
 
-        <div class="checkbox-row" style="margin-top: 8px">
+        <div class="checkbox-row mt-8">
           <input type="checkbox" id="feedAutoSubmit" checked />
           <div class="cb-text">
             <div class="cb-label">自动提交</div>
@@ -711,7 +336,7 @@
           </div>
         </div>
 
-        <div class="form-group" style="margin-top: 14px">
+        <div class="form-group mt-14">
           <label for="feedCheckInterval">检查间隔</label>
           <select id="feedCheckInterval" class="inline-select">
             <option value="15">15 分钟</option>
@@ -726,9 +351,8 @@
 
         <div class="btn-row">
           <button class="btn btn-primary" id="btnCheckFeedsNow">立即检查</button>
-          <span id="feedCheckStatus" style="font-size: 13px; color: #888; line-height: 38px"></span>
-          <a href="subscriptions.html" target="_blank"
-            style="margin-left: auto; font-size: 13px; color: #6c5ce7; text-decoration: none; line-height: 38px">打开订阅管理 →</a>
+          <span id="feedCheckStatus"></span>
+          <a href="subscriptions.html" target="_blank" class="subs-link">打开订阅管理 →</a>
         </div>
       </div>
 
@@ -744,16 +368,11 @@
           </div>
         </div>
 
-        <div class="form-group" style="margin-top: 14px">
+        <div class="form-group mt-14">
           <label for="fetchDelay">请求间隔 (毫秒)</label>
           <input
-            type="number"
-            id="fetchDelay"
-            value="500"
-            min="100"
-            max="5000"
-            step="100"
-            class="inline-number"
+            type="number" id="fetchDelay" value="500"
+            min="100" max="5000" step="100" class="inline-number"
           />
           <div class="hint">API 分页请求之间的等待时间，避免触发限流</div>
         </div>
@@ -761,13 +380,8 @@
         <div class="form-group">
           <label for="scanDepth">扫描深度</label>
           <input
-            type="number"
-            id="scanDepth"
-            value="10"
-            min="4"
-            max="20"
-            step="1"
-            class="inline-number"
+            type="number" id="scanDepth" value="10"
+            min="4" max="20" step="1" class="inline-number"
           />
           <div class="hint">Vue Store 递归搜索的最大深度</div>
         </div>
@@ -785,7 +399,6 @@
       </div>
     </div>
 
-    <script src="vault-writer.js"></script>
     <script src="options.js"></script>
   </body>
 </html>

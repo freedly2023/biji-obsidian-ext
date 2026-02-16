@@ -2,532 +2,8 @@
 <html lang="zh-CN">
   <head>
     <meta charset="UTF-8" />
-    <style>
-      * {
-        margin: 0;
-        padding: 0;
-        box-sizing: border-box;
-      }
-      body {
-        width: 380px;
-        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-        font-size: 14px;
-        color: #333;
-      }
-      .header {
-        background: #6c5ce7;
-        color: #fff;
-        padding: 16px;
-        display: flex;
-        justify-content: space-between;
-        align-items: flex-start;
-      }
-      .header-text {
-        flex: 1;
-      }
-      .header h1 {
-        font-size: 16px;
-        font-weight: 600;
-      }
-      .header p {
-        font-size: 12px;
-        opacity: 0.8;
-        margin-top: 4px;
-      }
-      .btn-gear {
-        background: none;
-        border: none;
-        color: #fff;
-        font-size: 20px;
-        cursor: pointer;
-        padding: 0 2px;
-        opacity: 0.8;
-        transition: opacity 0.2s;
-      }
-      .btn-gear:hover {
-        opacity: 1;
-      }
-      .body {
-        padding: 16px;
-      }
-
-      /* Step labels */
-      .step-label {
-        font-size: 12px;
-        font-weight: 600;
-        color: #6c5ce7;
-        margin-bottom: 8px;
-        display: flex;
-        align-items: center;
-        gap: 6px;
-      }
-      .step-label .step-num {
-        background: #6c5ce7;
-        color: #fff;
-        width: 18px;
-        height: 18px;
-        border-radius: 50%;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 11px;
-        font-weight: 700;
-      }
-
-      /* Fetch section */
-      .fetch-row {
-        display: flex;
-        gap: 8px;
-        margin-bottom: 12px;
-      }
-
-      /* Note count inline */
-      .note-count-bar {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        padding: 8px 12px;
-        background: #f8f9fa;
-        border-radius: 8px;
-        margin-bottom: 8px;
-        font-size: 13px;
-      }
-      .note-count-bar .count {
-        font-weight: 600;
-        color: #6c5ce7;
-      }
-
-      .note-list {
-        max-height: 180px;
-        overflow-y: auto;
-        border: 1px solid #e9ecef;
-        border-radius: 8px;
-        margin-bottom: 14px;
-        font-size: 13px;
-      }
-      .note-list:empty {
-        display: none;
-      }
-      .note-item {
-        padding: 8px 12px;
-        border-bottom: 1px solid #f0f0f0;
-        display: flex;
-        align-items: center;
-        gap: 8px;
-      }
-      .note-item:last-child {
-        border-bottom: none;
-      }
-      .note-item input[type='checkbox'] {
-        flex-shrink: 0;
-        accent-color: #6c5ce7;
-        cursor: pointer;
-      }
-      .note-item .title {
-        flex: 1;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-      }
-      .note-item .date {
-        color: #999;
-        font-size: 11px;
-        margin-left: 8px;
-        flex-shrink: 0;
-      }
-      .note-item .new-dot {
-        color: #e74c3c;
-        font-size: 10px;
-        flex-shrink: 0;
-        margin-left: -2px;
-      }
-      .new-badge {
-        display: none;
-        background: #e74c3c;
-        color: #fff;
-        font-size: 11px;
-        font-weight: 600;
-        padding: 1px 7px;
-        border-radius: 10px;
-        margin-left: 8px;
-      }
-      .btn-export-new {
-        width: 100%;
-        padding: 8px;
-        margin-top: 8px;
-        border: 1px solid #e74c3c;
-        border-radius: 8px;
-        background: #fff;
-        color: #e74c3c;
-        cursor: pointer;
-        font-size: 13px;
-        font-weight: 500;
-        transition: all 0.2s;
-      }
-      .btn-export-new:hover {
-        background: #e74c3c;
-        color: #fff;
-      }
-      .btn-manage-all {
-        width: 100%;
-        padding: 8px;
-        margin-top: 6px;
-        border: 1px solid #6c5ce7;
-        border-radius: 8px;
-        background: #fff;
-        color: #6c5ce7;
-        cursor: pointer;
-        font-size: 12px;
-        font-weight: 500;
-        transition: all 0.2s;
-      }
-      .btn-manage-all:hover {
-        background: #f8f7fd;
-      }
-      .batch-bar {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        padding: 6px 12px;
-        background: #f8f9fa;
-        border-bottom: 1px solid #e9ecef;
-        font-size: 12px;
-      }
-      .batch-bar label {
-        display: flex;
-        align-items: center;
-        gap: 4px;
-        cursor: pointer;
-      }
-      .batch-bar .sel-count {
-        color: #6c5ce7;
-        font-weight: 600;
-        margin-left: auto;
-      }
-
-      /* Format toggle */
-      .format-toggle {
-        display: flex;
-        border: 1px solid #e9ecef;
-        border-radius: 8px;
-        overflow: hidden;
-        margin-bottom: 10px;
-      }
-      .format-toggle .fmt-btn {
-        flex: 1;
-        padding: 8px;
-        border: none;
-        background: #fff;
-        cursor: pointer;
-        font-size: 13px;
-        font-weight: 500;
-        color: #666;
-        transition: all 0.2s;
-        text-align: center;
-      }
-      .format-toggle .fmt-btn.active {
-        background: #eee;
-        color: #333;
-        font-weight: 600;
-      }
-      .format-toggle .fmt-btn + .fmt-btn {
-        border-left: 1px solid #e9ecef;
-      }
-
-      /* File format toggle (MD/PDF/DOCX) — multi-select checkboxes */
-      .file-format-toggle {
-        display: flex;
-        gap: 6px;
-        margin-bottom: 8px;
-      }
-      .file-format-toggle .file-fmt-check {
-        flex: 1;
-        padding: 6px;
-        border: 2px solid #e9ecef;
-        border-radius: 6px;
-        background: #fff;
-        cursor: pointer;
-        font-size: 12px;
-        font-weight: 600;
-        color: #666;
-        text-align: center;
-        transition: all 0.2s;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 4px;
-      }
-      .file-format-toggle .file-fmt-check input[type='checkbox'] {
-        accent-color: #6c5ce7;
-        cursor: pointer;
-      }
-      .file-format-toggle .file-fmt-check.active {
-        border-color: #6c5ce7;
-        background: #f8f7fd;
-        color: #6c5ce7;
-      }
-      .file-format-toggle .file-fmt-check:hover:not(.active) {
-        border-color: #c4bbf0;
-      }
-      .file-format-label {
-        font-size: 11px;
-        color: #888;
-        margin-bottom: 4px;
-      }
-
-      /* Vault inline status */
-      .vault-inline {
-        display: none;
-        align-items: center;
-        gap: 6px;
-        padding: 6px 12px;
-        background: #f8f7fd;
-        border-radius: 6px;
-        margin-bottom: 10px;
-        font-size: 12px;
-      }
-      .vault-inline.visible {
-        display: flex;
-      }
-      .vault-inline .v-dot {
-        width: 8px;
-        height: 8px;
-        border-radius: 50%;
-        background: #999;
-        flex-shrink: 0;
-      }
-      .vault-inline .v-label {
-        flex: 1;
-        color: #555;
-      }
-      .vault-inline .v-link {
-        color: #6c5ce7;
-        font-size: 11px;
-        text-decoration: none;
-        flex-shrink: 0;
-      }
-      .vault-inline .v-link:hover {
-        text-decoration: underline;
-      }
-
-      /* Buttons */
-      .btn {
-        padding: 10px;
-        border: none;
-        border-radius: 8px;
-        cursor: pointer;
-        font-size: 13px;
-        font-weight: 500;
-        transition: opacity 0.2s;
-      }
-      .btn:hover {
-        opacity: 0.85;
-      }
-      .btn:disabled {
-        opacity: 0.5;
-        cursor: not-allowed;
-      }
-      .btn-primary {
-        background: #6c5ce7;
-        color: #fff;
-      }
-      .btn-secondary {
-        background: #e9ecef;
-        color: #333;
-      }
-      .btn-danger {
-        background: #e74c3c;
-        color: #fff;
-        font-size: 12px;
-      }
-      .btn-full {
-        width: 100%;
-      }
-
-      /* Progress */
-      .progress {
-        margin-top: 12px;
-        display: none;
-      }
-      .progress.active {
-        display: block;
-      }
-      .pbar {
-        height: 6px;
-        background: #e9ecef;
-        border-radius: 3px;
-        overflow: hidden;
-      }
-      .pfill {
-        height: 100%;
-        background: #6c5ce7;
-        border-radius: 3px;
-        width: 0;
-        transition: width 0.3s;
-      }
-      .ptxt {
-        font-size: 12px;
-        color: #666;
-        margin-top: 4px;
-        text-align: center;
-      }
-
-      /* Advanced toggle */
-      .advanced-toggle {
-        margin-top: 12px;
-        padding: 0;
-        border: none;
-        background: none;
-        cursor: pointer;
-        font-size: 12px;
-        color: #888;
-        display: flex;
-        align-items: center;
-        gap: 4px;
-        transition: color 0.2s;
-      }
-      .advanced-toggle:hover {
-        color: #555;
-      }
-      .advanced-toggle .arrow {
-        display: inline-block;
-        transition: transform 0.2s;
-        font-size: 10px;
-      }
-      .advanced-toggle.open .arrow {
-        transform: rotate(90deg);
-      }
-      .advanced-content {
-        display: none;
-        margin-top: 8px;
-        padding: 10px;
-        background: #f8f9fa;
-        border-radius: 8px;
-      }
-      .advanced-content.visible {
-        display: block;
-      }
-      .advanced-content .adv-row {
-        display: flex;
-        gap: 8px;
-        margin-bottom: 8px;
-      }
-      .advanced-content .adv-row:last-child {
-        margin-bottom: 0;
-      }
-      .advanced-content .btn {
-        flex: 1;
-        font-size: 12px;
-        padding: 8px;
-      }
-      .advanced-content label {
-        display: flex;
-        align-items: center;
-        gap: 6px;
-        cursor: pointer;
-        font-size: 12px;
-        color: #555;
-      }
-
-      .tip {
-        margin-top: 12px;
-        padding: 10px;
-        background: #e8f4fd;
-        border-radius: 8px;
-        font-size: 12px;
-        color: #555;
-        text-align: center;
-      }
-
-      .section-divider {
-        border: none;
-        border-top: 1px solid #e9ecef;
-        margin: 14px 0;
-      }
-
-      /* Tab bar */
-      .tab-bar {
-        display: flex;
-        border-bottom: 2px solid #e9ecef;
-        background: #fafafa;
-      }
-      .tab-btn {
-        flex: 1;
-        padding: 10px;
-        border: none;
-        background: none;
-        cursor: pointer;
-        font-size: 13px;
-        font-weight: 500;
-        color: #888;
-        transition: all 0.2s;
-        border-bottom: 2px solid transparent;
-        margin-bottom: -2px;
-      }
-      .tab-btn:hover { color: #555; }
-      .tab-btn.active {
-        color: #6c5ce7;
-        border-bottom-color: #6c5ce7;
-      }
-      .tab-panel { display: none; }
-      .tab-panel.active { display: block; }
-
-      /* Subscription panel */
-      .subs-toolbar {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        margin-bottom: 10px;
-      }
-      .subs-toolbar select {
-        padding: 4px 8px;
-        border: 1px solid #ddd;
-        border-radius: 4px;
-        font-size: 12px;
-      }
-      .subs-batch-bar {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        padding: 6px 12px;
-        background: #f8f9fa;
-        border-radius: 6px;
-        margin-bottom: 8px;
-        font-size: 12px;
-      }
-      .subs-batch-bar label {
-        display: flex;
-        align-items: center;
-        gap: 4px;
-        cursor: pointer;
-      }
-      .subs-batch-bar .sel-count {
-        color: #6c5ce7;
-        font-weight: 600;
-        margin-left: auto;
-      }
-      .subs-list {
-        max-height: 320px;
-        overflow-y: auto;
-        border: 1px solid #e9ecef;
-        border-radius: 8px;
-        margin-bottom: 10px;
-      }
-      .subs-list:empty::after {
-        content: '暂无内容，点击刷新获取';
-        display: block;
-        padding: 20px;
-        text-align: center;
-        color: #999;
-        font-size: 13px;
-      }
-      .subs-status {
-        font-size: 11px;
-        color: #888;
-        text-align: center;
-        margin-top: 6px;
-      }
-    </style>
+    <link rel="stylesheet" href="styles/common.css" />
+    <link rel="stylesheet" href="styles/popup.css" />
   </head>
   <body>
     <div class="header">
@@ -546,43 +22,21 @@
       <!-- Step 1: Fetch notes -->
       <div class="step-label"><span class="step-num">1</span> 获取笔记</div>
       <div class="fetch-row">
-        <button class="btn btn-primary" id="btnFetchAll" style="flex: 1">获取全部笔记</button>
-        <button
-          class="btn btn-danger"
-          id="btnCancelFetch"
-          style="display: none; flex: 0 0 auto; padding: 10px 14px"
-        >
-          取消
-        </button>
+        <button class="btn btn-primary" id="btnFetchAll">获取全部笔记</button>
+        <button class="btn btn-danger" id="btnCancelFetch" style="display:none">取消</button>
       </div>
-      <div
-        id="fetchStatus"
-        style="
-          font-size: 11px;
-          color: #888;
-          margin-top: -8px;
-          margin-bottom: 8px;
-          text-align: center;
-          display: none;
-        "
-      ></div>
+      <div id="fetchStatus"></div>
 
       <!-- Note count + list -->
-      <div class="note-count-bar" id="noteCountBar" style="display: none">
-        <span
-          >已捕获 <span class="count" id="noteCount">0</span> 条笔记<span
-            class="new-badge"
-            id="newBadge"
-          ></span
-        ></span>
-        <label
-          style="font-size: 12px; display: flex; align-items: center; gap: 4px; cursor: pointer"
-        >
-          <input type="checkbox" id="selectAll" style="accent-color: #6c5ce7" /> 全选
+      <div class="note-count-bar" id="noteCountBar">
+        <span>已捕获 <span class="count" id="noteCount">0</span> 条笔记<span
+            class="new-badge" id="newBadge"></span></span>
+        <label class="select-all-label">
+          <input type="checkbox" id="selectAll" /> 全选
         </label>
       </div>
       <div id="noteList" class="note-list"></div>
-      <button class="btn-manage-all" id="btnManageAll" style="display: none">管理全部笔记</button>
+      <button class="btn-manage-all" id="btnManageAll" style="display:none">管理全部笔记</button>
 
       <hr class="section-divider" />
 
@@ -610,7 +64,7 @@
       </div>
 
       <button class="btn btn-primary btn-full" id="btnExport">导出全部笔记</button>
-      <button class="btn-export-new" id="btnExportNew" style="display: none">仅导出新增笔记</button>
+      <button class="btn-export-new" id="btnExportNew">仅导出新增笔记</button>
 
       <!-- Progress -->
       <div class="progress" id="progress">
@@ -628,9 +82,7 @@
           <button class="btn btn-danger" id="btnClear">清空数据</button>
         </div>
         <div class="adv-row">
-          <button class="btn btn-secondary" id="btnClearExport" style="font-size: 12px">
-            清除导出记录
-          </button>
+          <button class="btn btn-secondary" id="btnClearExport">清除导出记录</button>
         </div>
         <label>
           <input type="checkbox" id="discoveryToggle" />
@@ -645,20 +97,20 @@
     <div class="tab-panel" id="panelSubs">
     <div class="body">
       <div class="subs-toolbar">
-        <button class="btn btn-primary" id="btnRefreshFeeds" style="padding:6px 12px;font-size:12px">刷新</button>
-        <span id="subsRefreshStatus" style="font-size:11px;color:#888;flex:1"></span>
+        <button class="btn btn-primary" id="btnRefreshFeeds">刷新</button>
+        <span id="subsRefreshStatus"></span>
         <select id="subsStatusFilter">
           <option value="">全部</option>
           <option value="new">未提交</option>
           <option value="submitted">已提交</option>
         </select>
-        <a href="#" id="btnOpenSubsPage" style="font-size:11px;color:#6c5ce7;text-decoration:none;flex-shrink:0">管理订阅</a>
+        <a href="#" id="btnOpenSubsPage">管理订阅</a>
       </div>
 
       <div class="subs-batch-bar">
-        <label><input type="checkbox" id="subsSelectAll" style="accent-color:#6c5ce7"> 全选</label>
+        <label><input type="checkbox" id="subsSelectAll"> 全选</label>
         <span class="sel-count" id="subsSelCount">已选 0 条</span>
-        <button class="btn btn-primary" id="btnSubmitSelected" style="padding:4px 10px;font-size:11px" disabled>提交选中</button>
+        <button class="btn btn-primary" id="btnSubmitSelected" disabled>提交选中</button>
       </div>
 
       <div class="subs-list" id="subsList"></div>
@@ -676,9 +128,6 @@
     <script src="lib/FileSaver.min.js"></script>
     <script src="lib/html2pdf.bundle.min.js"></script>
     <script src="lib/docx.min.js"></script>
-    <script src="vault-writer.js"></script>
-    <script src="shared.js"></script>
-    <script src="subscription-shared.js"></script>
     <script src="popup.js"></script>
   </body>
 </html>
