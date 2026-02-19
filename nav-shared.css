@@ -1,4 +1,4 @@
-/* Shared tab navigation bar — used by notes / subscriptions / options pages */
+/* Shared tab navigation bar — used by standalone pages */
 .nav-tab-bar {
   position: sticky;
   top: 0;
@@ -29,4 +29,14 @@
 .nav-tab.active {
   color: #6c5ce7;
   border-bottom-color: #6c5ce7;
+}
+
+@media (max-width: 760px) {
+  .nav-tab-bar-inner {
+    padding: 0 8px;
+  }
+  .nav-tab {
+    font-size: 13px;
+    padding: 12px 0;
+  }
 }

@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>GET笔记超级助手 - 帮助文档</title>
+    <link rel="stylesheet" href="styles/common.css" />
+    <link rel="stylesheet" href="nav-shared.css" />
+    <link rel="stylesheet" href="styles/help.css" />
+  </head>
+  <body class="page-body">
+    <nav class="nav-tab-bar">
+      <div class="nav-tab-bar-inner">
+        <a class="nav-tab" href="notes.html">笔记管理</a>
+        <a class="nav-tab" href="subscriptions.html">订阅管理</a>
+        <a class="nav-tab" href="options.html">设置</a>
+        <a class="nav-tab" href="welcome.html">关于</a>
+        <a class="nav-tab active" href="help.html">帮助</a>
+      </div>
+    </nav>
+
+    <main class="container help-container">
+      <section class="card help-hero">
+        <h1>GET笔记超级助手 帮助文档</h1>
+        <p>按下面步骤即可完成抓取、导出和订阅更新。遇到问题可直接查看常见问题部分。</p>
+        <div class="hero-actions">
+          <a class="btn btn-primary" href="options.html">打开设置</a>
+          <a class="btn btn-secondary" href="welcome.html">返回欢迎页</a>
+        </div>
+      </section>
+
+      <section class="card help-section">
+        <h2>一、使用前准备</h2>
+        <ol>
+          <li>确认已登录 <code>biji.com</code>。</li>
+          <li>扩展请从项目根目录加载。</li>
+          <li>首次使用建议先在设置页确认导出方式（ZIP 或直写仓库目录）。</li>
+        </ol>
+      </section>
+
+      <section class="card help-section">
+        <h2>二、基础使用流程</h2>
+        <ol>
+          <li>打开插件弹窗。</li>
+          <li>点击“获取全部笔记”。</li>
+          <li>等待抓取完成后，勾选要导出的笔记。</li>
+          <li>选择导出格式（Markdown、PDF、DOCX）。</li>
+          <li>点击“导出全部笔记”或“仅导出新增笔记”。</li>
+        </ol>
+      </section>
+
+      <section class="card help-section">
+        <h2>三、导出方式说明</h2>
+        <h3>1) ZIP 下载</h3>
+        <ul>
+          <li>适合所有用户，兼容性最好。</li>
+          <li>导出后手动把文件解压到 Obsidian 仓库目录。</li>
+        </ul>
+
+        <h3>2) 直接写入仓库目录</h3>
+        <ul>
+          <li>在设置页切换到“直接写入仓库目录”。</li>
+          <li>点击“选择仓库目录”并授权。</li>
+          <li>可配置子文件夹，例如 <code>biji-notes</code>。</li>
+        </ul>
+      </section>
+
+      <section class="card help-section">
+        <h2>四、推荐设置</h2>
+        <ol>
+          <li>文件命名建议用 <code>{date}-{title}</code>，便于按时间管理。</li>
+          <li>分类方式可选“平铺”或“按月份”。</li>
+          <li>语音内容建议开启“断句”，阅读体验更好。</li>
+          <li>若你只在 Obsidian 内查看正文，文字记录导出可保持“不开启”。</li>
+        </ol>
+      </section>
+
+      <section class="card help-section">
+        <h2>五、订阅源功能使用</h2>
+        <ol>
+          <li>打开“设置”或“订阅管理”页面。</li>
+          <li>添加 RSS、YouTube 频道或播客订阅地址。</li>
+          <li>点击“立即检查”验证订阅是否可用。</li>
+          <li>需要自动更新时，开启“自动检查”并设置检查间隔。</li>
+          <li>可在订阅管理页筛选并批量提交条目。</li>
+        </ol>
+      </section>
+
+      <section class="card help-section">
+        <h2>六、页面内注入按钮</h2>
+        <ul>
+          <li>支持平台：YouTube、B 站、小宇宙。</li>
+          <li>进入对应内容页后，会出现“Get笔记”按钮。</li>
+          <li>点击后可直接把当前链接提交到 Get 笔记。</li>
+        </ul>
+      </section>
+
+      <section class="card help-section">
+        <h2>七、常见问题</h2>
+
+        <div class="faq-item">
+          <h3>1) 提示“未捕获到认证信息”</h3>
+          <ol>
+            <li>先打开并登录 <code>biji.com</code>。</li>
+            <li>在站内实际浏览几条笔记后，再回到插件点击“获取全部笔记”。</li>
+          </ol>
+        </div>
+
+        <div class="faq-item">
+          <h3>2) 获取成功但导出内容为空</h3>
+          <ol>
+            <li>检查是否勾选了要导出的笔记。</li>
+            <li>在笔记管理页确认数据确实已抓取。</li>
+            <li>若为旧缓存异常，可在高级操作中清空后重新抓取。</li>
+          </ol>
+        </div>
+
+        <div class="faq-item">
+          <h3>3) 直接写入仓库目录失败</h3>
+          <ol>
+            <li>重新点击“授予权限”或“选择仓库目录”。</li>
+            <li>确认浏览器版本支持文件系统访问能力。</li>
+            <li>检查目标目录是否可写。</li>
+          </ol>
+        </div>
+
+        <div class="faq-item">
+          <h3>4) 订阅自动检查没有执行</h3>
+          <ol>
+            <li>在设置页确认“自动检查”已开启。</li>
+            <li>调整检查间隔后重新保存设置。</li>
+            <li>使用“立即检查”验证订阅本身可访问。</li>
+          </ol>
+        </div>
+
+        <div class="faq-item">
+          <h3>5) 页面内没有出现注入按钮</h3>
+          <ol>
+            <li>在设置页确认总开关与平台开关已开启。</li>
+            <li>刷新页面后重试。</li>
+            <li>确认当前页面是支持的详情页而非列表页。</li>
+          </ol>
+        </div>
+
+        <div class="faq-item">
+          <h3>6) PDF 或 DOCX 导出失败</h3>
+          <ol>
+            <li>优先改为导出 Markdown，验证源数据是否正常。</li>
+            <li>减少一次性导出数量，分批导出。</li>
+            <li>如果是个别笔记失败，先导出其 Markdown 进行排查。</li>
+          </ol>
+        </div>
+      </section>
+    </main>
+  </body>
+</html>

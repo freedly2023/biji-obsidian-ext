@@ -8,10 +8,26 @@
   <body>
     <div class="header">
       <div class="header-text">
-        <h1>Biji to Obsidian</h1>
-        <p>Get笔记 → Markdown 导出工具</p>
+        <h1>GET笔记超级助手</h1>
+        <p>订阅更新、视频播客一键提交转录、批量下载导出，支持 Obsidian</p>
       </div>
-      <button class="btn-gear" id="btnSettings" title="设置">&#9881;</button>
+      <div class="header-actions">
+        <div class="header-menu">
+          <button
+            class="btn-menu"
+            id="btnHeaderMenu"
+            title="更多"
+            aria-label="更多"
+            aria-haspopup="true"
+            aria-expanded="false"
+          >&#8942;</button>
+          <div class="header-menu-dropdown" id="headerMenuDropdown" role="menu">
+            <button class="header-menu-item" id="btnSettings" type="button" role="menuitem">设置</button>
+            <a class="header-menu-item" href="welcome.html" target="_blank" rel="noreferrer" role="menuitem">关于</a>
+            <a class="header-menu-item" href="help.html" target="_blank" rel="noreferrer" role="menuitem">帮助</a>
+          </div>
+        </div>
+      </div>
     </div>
     <div class="tab-bar">
       <button class="tab-btn active" data-tab="export">笔记导出</button>
@@ -74,7 +90,7 @@
 
       <!-- Advanced options (collapsed) -->
       <button class="advanced-toggle" id="advancedToggle">
-        <span class="arrow">&#9654;</span> 高级选项
+        <span class="arrow">&#9654;</span> 开发模式
       </button>
       <div class="advanced-content" id="advancedContent">
         <div class="adv-row">

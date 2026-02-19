@@ -1,0 +1,94 @@
+/* help.css — User-friendly help page */
+
+.help-container {
+  max-width: 920px;
+  padding-top: 24px;
+  padding-bottom: 30px;
+}
+
+.help-hero {
+  background: linear-gradient(135deg, #ffffff 0%, #f4f7ff 100%);
+  border: 1px solid #e4eafe;
+}
+
+.help-hero h1 {
+  font-size: 28px;
+  color: #2a3155;
+  margin-bottom: 10px;
+}
+
+.help-hero p {
+  color: #596080;
+  line-height: 1.7;
+  margin-bottom: 16px;
+}
+
+.hero-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.hero-actions .btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+  padding: 10px 18px;
+}
+
+.help-section h3 {
+  font-size: 15px;
+  color: #383f66;
+  margin: 14px 0 8px;
+}
+
+.help-section ul,
+.help-section ol {
+  margin-left: 20px;
+  color: #4a4a57;
+  line-height: 1.8;
+}
+
+.help-section li + li {
+  margin-top: 2px;
+}
+
+.help-section code {
+  background: #f0eef9;
+  color: #5746c6;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.faq-item {
+  border: 1px solid #ececf4;
+  border-radius: 10px;
+  background: #fafafe;
+  padding: 12px 14px;
+  margin-bottom: 10px;
+}
+
+.faq-item h3 {
+  margin-top: 0;
+}
+
+.faq-item:last-child {
+  margin-bottom: 0;
+}
+
+@media (max-width: 760px) {
+  .help-container {
+    margin-top: 8px;
+    padding-left: 14px;
+    padding-right: 14px;
+  }
+
+  .help-hero h1 {
+    font-size: 22px;
+  }
+
+  .hero-actions .btn {
+    width: 100%;
+  }
+}

@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>GET笔记超级助手 - 欢迎使用</title>
+    <link rel="stylesheet" href="styles/common.css" />
+    <link rel="stylesheet" href="nav-shared.css" />
+    <link rel="stylesheet" href="styles/welcome.css" />
+  </head>
+  <body class="page-body">
+    <nav class="nav-tab-bar">
+      <div class="nav-tab-bar-inner">
+        <a class="nav-tab" href="notes.html">笔记管理</a>
+        <a class="nav-tab" href="subscriptions.html">订阅管理</a>
+        <a class="nav-tab" href="options.html">设置</a>
+        <a class="nav-tab active" href="welcome.html">关于</a>
+        <a class="nav-tab" href="help.html">帮助</a>
+      </div>
+    </nav>
+    <main class="container welcome-container">
+      <section class="card hero-card">
+        <span class="install-badge">安装成功</span>
+        <h1>欢迎使用 GET笔记超级助手</h1>
+        <p>订阅更新、视频播客一键提交转录、批量下载导出，支持 Obsidian。</p>
+        <div class="hero-actions">
+          <a class="btn btn-primary" href="options.html">打开设置</a>
+          <a class="btn btn-secondary" href="notes.html">打开笔记管理</a>
+          <a class="btn btn-secondary" href="help.html">查看帮助文档</a>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>功能亮点</h2>
+        <ul class="feature-list">
+          <li>支持导出为 Markdown、PDF、DOCX。</li>
+          <li>支持 ZIP 下载，或直接写入 Obsidian Vault。</li>
+          <li>支持命名模板、Frontmatter 字段与标签策略。</li>
+          <li>支持“仅导出新增笔记”，减少重复导出。</li>
+          <li>支持订阅源管理、定时检查与批量提交。</li>
+          <li>支持 YouTube、B 站、小宇宙页面注入按钮。</li>
+        </ul>
+      </section>
+
+      <section class="card">
+        <h2>核心卖点</h2>
+        <div class="selling-grid">
+          <article class="selling-item">
+            <h3>一键收内容</h3>
+            <p>YouTube、B站、小宇宙页面可直接提交，不用手动复制链接。</p>
+          </article>
+          <article class="selling-item">
+            <h3>自动追更新</h3>
+            <p>订阅后自动检查新内容，支持批量提交，省去重复操作。</p>
+          </article>
+          <article class="selling-item">
+            <h3>批量导出到 Obsidian</h3>
+            <p>支持 Markdown、PDF、DOCX，可 ZIP 下载，也可直接写入 Vault。</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>快速上手（3 步）</h2>
+        <ol class="quick-start">
+          <li>打开并登录 <code>biji.com</code>，确保账号状态正常。</li>
+          <li>在插件弹窗点击“获取全部笔记”，抓取数据。</li>
+          <li>选择导出格式后点击“导出全部笔记”或“仅导出新增笔记”。</li>
+        </ol>
+      </section>
+
+      <section class="card help-card">
+        <h2>帮助文档与常见问题</h2>
+        <p>完整说明见帮助页面，包含配置指南、订阅功能说明和故障排查。</p>
+        <ul class="faq-list">
+          <li>提示“未捕获到认证信息”：先登录并浏览几条笔记，再执行抓取。</li>
+          <li>导出为空：确认已勾选笔记，必要时清空缓存后重新抓取。</li>
+          <li>直接写入 Vault 失败：重新授权目录权限并检查目标目录可写。</li>
+        </ul>
+        <div class="hero-actions">
+          <a class="btn btn-primary" href="help.html">打开完整帮助文档</a>
+          <a class="btn btn-secondary" href="options.html">前往设置页</a>
+        </div>
+      </section>
+    </main>
+  </body>
+</html>

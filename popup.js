@@ -2369,6 +2369,8 @@
     const pfillEl = document.getElementById('pfill');
     const ptxtEl = document.getElementById('ptxt');
     const discoveryToggle = document.getElementById('discoveryToggle');
+    const btnHeaderMenu = document.getElementById('btnHeaderMenu');
+    const headerMenuDropdown = document.getElementById('headerMenuDropdown');
     const btnSettings = document.getElementById('btnSettings');
     const selectAllEl = document.getElementById('selectAll');
     // Export method toggle
@@ -2399,7 +2401,42 @@
     let currentSettings = {};
     let activeExportFormat = 'zip';
     const activeFileFormats = { md: true, pdf: false, docx: false };
-    // --- Settings gear button ---
+    function closeHeaderMenu() {
+        if (!headerMenuDropdown || !btnHeaderMenu)
+            return;
+        headerMenuDropdown.classList.remove('visible');
+        btnHeaderMenu.setAttribute('aria-expanded', 'false');
+    }
+    // --- Header dropdown menu ---
+    if (btnHeaderMenu && headerMenuDropdown) {
+        btnHeaderMenu.addEventListener('click', function (e) {
+            e.stopPropagation();
+            const willOpen = !headerMenuDropdown.classList.contains('visible');
+            if (willOpen) {
+                headerMenuDropdown.classList.add('visible');
+                btnHeaderMenu.setAttribute('aria-expanded', 'true');
+            }
+            else {
+                closeHeaderMenu();
+            }
+        });
+        document.addEventListener('click', function (e) {
+            const target = e.target;
+            if (target && !headerMenuDropdown.contains(target) && target !== btnHeaderMenu) {
+                closeHeaderMenu();
+            }
+        });
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape') {
+                closeHeaderMenu();
+            }
+        });
+        const menuItems = headerMenuDropdown.querySelectorAll('a,button');
+        menuItems.forEach(function (item) {
+            item.addEventListener('click', function () { closeHeaderMenu(); });
+        });
+    }
+    // --- Settings action ---
     if (btnSettings) {
         btnSettings.addEventListener('click', function () {
             chrome.runtime.openOptionsPage();
