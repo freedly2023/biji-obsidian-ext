@@ -31,3 +31,36 @@ export function stripHtml(html: string | null | undefined): string {
   if (!html) return '';
   return html.replace(/<[^>]+>/g, '').replace(/&[^;]+;/g, ' ').trim();
 }
+
+export function htmlToText(html: string): string {
+  if (!html) return '';
+  const div = document.createElement('div');
+  div.innerHTML = html;
+  div.querySelectorAll('style, script, link, noscript').forEach(el => el.remove());
+  return (div.textContent || '').trim();
+}
+
+export function parseSentenceList(raw: string): string | null {
+  if (!raw || raw.charAt(0) !== '{') return null;
+  try {
+    const obj = JSON.parse(raw);
+    const list = obj.sentence_list || obj.sentenceList || obj.sentences;
+    if (!Array.isArray(list) || list.length === 0) return null;
+    return list
+      .map((s: any) => s.text || s.content || s.sentence || '')
+      .filter(Boolean)
+      .join('\n\n');
+  } catch (_) {
+    return null;
+  }
+}
+
+export function normalizeTranscript(raw: string): string {
+  if (!raw) return '';
+  const parsed = parseSentenceList(raw);
+  if (parsed) return parsed;
+  if (raw.includes('<') && raw.includes('>')) {
+    return htmlToText(raw) || stripHtml(raw) || raw;
+  }
+  return raw;
+}

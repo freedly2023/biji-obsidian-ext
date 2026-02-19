@@ -2,6 +2,7 @@
 
 import type { Note, Settings, Tag } from './types';
 import { formatDate, formatDateShort } from './date-utils';
+import { normalizeTranscript } from './sanitize';
 
 export function formatTags(tags: (string | Tag)[] | null | undefined): string[] {
   if (!tags || !Array.isArray(tags)) return [];
@@ -167,7 +168,7 @@ export function convertTranscript(note: Note, settings?: Settings | null): strin
   const parts: string[] = [frontmatter(note, settings), ''];
   parts.push('# ' + (note.title || 'Untitled') + ' — Transcript');
   parts.push('');
-  let content = note.rawTranscript || note.content || '';
+  let content = normalizeTranscript(note.rawTranscript || '') || note.content || '';
   if (content.includes('<') && content.includes('>')) {
     content = htmlToMd(content);
   }

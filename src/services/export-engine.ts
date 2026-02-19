@@ -3,6 +3,7 @@
 
 import type { Note, Settings } from '../core/types';
 import { MD, htmlToMd, convert as mdConvert, convertTranscript as mdConvertTranscript } from '../core/markdown-converter';
+import { normalizeTranscript } from '../core/sanitize';
 import { fullPath, fullPathWithFormat, getFileExt, deduplicateFilename } from '../core/filename';
 import { ExportTracker } from './export-tracker';
 import { PDFConverter } from './pdf-converter';
@@ -206,10 +207,7 @@ export function zipExport(
           let mdContent: string;
           if (settings.transcriptMode === 'merged' && note.rawTranscript) {
             mdContent = mdConvert(note, settings);
-            let rawContent = note.rawTranscript;
-            if (rawContent.includes('<') && rawContent.includes('>')) {
-              rawContent = htmlToMd(rawContent);
-            }
+            const rawContent = normalizeTranscript(note.rawTranscript);
             mdContent += '\n\n---\n\n## 原始文字记录\n\n' + rawContent;
           } else {
             mdContent = mdConvert(note, settings);
@@ -262,10 +260,7 @@ export function vaultExport(
       convert: (note: Note) => {
         if (settings.transcriptMode === 'merged' && note.rawTranscript) {
           const mainContent = mdConvert(note, settings);
-          let rawContent = note.rawTranscript;
-          if (rawContent.includes('<') && rawContent.includes('>')) {
-            rawContent = htmlToMd(rawContent);
-          }
+          const rawContent = normalizeTranscript(note.rawTranscript);
           return mainContent + '\n\n---\n\n## 原始文字记录\n\n' + rawContent;
         }
         return mdConvert(note, settings);

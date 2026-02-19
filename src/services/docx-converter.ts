@@ -4,6 +4,7 @@
 import type { Note, Settings } from '../core/types';
 import { formatDate } from '../core/date-utils';
 import { looksLikeMarkdown, mdToHtml } from '../core/markdown-converter';
+import { normalizeTranscript } from '../core/sanitize';
 import { exportNote as serverExportNote } from './server-exporter';
 
 const FONT = 'Microsoft YaHei';
@@ -203,12 +204,8 @@ function _buildNoteChildren(note: Note, settings: Settings): any[] {
         spacing: { after: 120 },
       }),
     );
-    const rawContent = note.rawTranscript;
-    if (rawContent.includes('<') && rawContent.includes('>')) {
-      _htmlToDocxChildren(rawContent).forEach(c => children.push(c));
-    } else {
-      _plainTextToChildren(rawContent, note, settings).forEach(c => children.push(c));
-    }
+    const rawContent = normalizeTranscript(note.rawTranscript);
+    _plainTextToChildren(rawContent, note, settings).forEach(c => children.push(c));
   }
 
   return children;
@@ -224,14 +221,8 @@ function _buildTranscriptChildren(note: Note, settings: Settings): any[] {
     }),
   );
 
-  const content = note.rawTranscript || note.content || '';
-  if (content.includes('<') && content.includes('>')) {
-    _htmlToDocxChildren(content).forEach(c => children.push(c));
-  } else if (looksLikeMarkdown(content)) {
-    _htmlToDocxChildren(mdToHtml(content)).forEach(c => children.push(c));
-  } else {
-    _plainTextToChildren(content, note, settings).forEach(c => children.push(c));
-  }
+  let content = normalizeTranscript(note.rawTranscript || '') || note.content || '';
+  _plainTextToChildren(content, note, settings).forEach(c => children.push(c));
 
   return children;
 }

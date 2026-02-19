@@ -149,6 +149,7 @@ export function fetchNoteTranscript(
 
   const urls: string[] = [];
   if (typeSegment) urls.push(BIJI_API_BASE + '/' + noteId + typeSegment + '/detail');
+  urls.push(BIJI_API_BASE + '/' + noteId + '/original');
   urls.push(BIJI_API_BASE + '/' + noteId + '/detail');
 
   const reqHeaders = Object.assign({}, headers);
@@ -264,6 +265,23 @@ function extractContent(obj: any): string | null {
 function extractTranscript(obj: any): string | null {
   if (!obj || typeof obj !== 'object') return null;
 
+  const note = obj.c || obj.data || obj;
+
+  // Strategy 0: direct transcript field names
+  const transcriptFields = [
+    'transcript', 'rawTranscript', 'raw_transcript',
+    'originalText', 'original_text', 'originalContent', 'original_content',
+    'rawContent', 'raw_content', 'rawText', 'raw_text',
+    'voiceText', 'voice_text', 'speechText', 'speech_text',
+  ];
+  for (const field of transcriptFields) {
+    if (typeof note[field] === 'string' && note[field].length > 50) {
+      const parsed = _parseSentenceListJson(note[field]);
+      if (parsed) return parsed;
+      return note[field];
+    }
+  }
+
   // Strategy 1: strings with timestamp pattern [00:00:00]
   const timestampTexts: string[] = [];
   findTimestampStrings(obj, timestampTexts, 0);
@@ -277,12 +295,28 @@ function extractTranscript(obj: any): string | null {
   if (paragraphs) return paragraphs;
 
   // Strategy 3: fall back to long content from detail API
-  const note = obj.c || obj.data || obj;
   if (note && typeof note.content === 'string' && note.content.length > 200) {
+    const parsed = _parseSentenceListJson(note.content);
+    if (parsed) return parsed;
     return note.content;
   }
 
   return null;
+}
+
+function _parseSentenceListJson(raw: string): string | null {
+  if (!raw || raw.charAt(0) !== '{') return null;
+  try {
+    const obj = JSON.parse(raw);
+    const list = obj.sentence_list || obj.sentenceList || obj.sentences;
+    if (!Array.isArray(list) || list.length === 0) return null;
+    return list
+      .map((s: any) => s.text || s.content || s.sentence || '')
+      .filter(Boolean)
+      .join('\n\n');
+  } catch (_) {
+    return null;
+  }
 }
 
 function findTimestampStrings(obj: any, results: string[], depth: number): void {
