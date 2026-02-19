@@ -5,6 +5,11 @@ import { DEFAULT_SETTINGS } from '../../core/constants';
 import { VaultWriterModule as VaultWriter } from '../../services/vault-writer';
 import type { Settings, FrontmatterFields } from '../../core/types';
 
+type SaveSource = 'auto' | 'manual';
+
+const ACTIVE_TAB_STORAGE_KEY = 'options.activeTab';
+const INPUT_SAVE_DEBOUNCE_MS = 400;
+
 // DOM references — export mode
 const radioZip = document.getElementById('radioZip')!;
 const radioVault = document.getElementById('radioVault')!;
@@ -26,6 +31,11 @@ const scanDepth = document.getElementById('scanDepth') as HTMLInputElement;
 const btnSave = document.getElementById('btnSave') as HTMLButtonElement;
 const btnReset = document.getElementById('btnReset') as HTMLButtonElement;
 const statusMsg = document.getElementById('statusMsg')!;
+const autosaveState = document.getElementById('autosaveState')!;
+
+// DOM references — tabs
+const settingsTabs = document.querySelectorAll<HTMLButtonElement>('.settings-tab');
+const settingsPanels = document.querySelectorAll<HTMLElement>('.settings-panel');
 
 // DOM references — new
 const dateFormat = document.getElementById('dateFormat') as HTMLSelectElement;
@@ -49,6 +59,49 @@ const feedCheckInterval = document.getElementById('feedCheckInterval') as HTMLIn
 const btnCheckFeedsNow = document.getElementById('btnCheckFeedsNow') as HTMLButtonElement;
 const feedCheckStatus = document.getElementById('feedCheckStatus')!;
 const feedAutoSubmit = document.getElementById('feedAutoSubmit') as HTMLInputElement | null;
+
+// Save state
+let hasLoadedSettings = false;
+let pendingSaveTimer: number | null = null;
+let saveInFlight = false;
+let queuedSaveSource: SaveSource | null = null;
+let statusMsgTimer: number | null = null;
+
+const settingFieldIds = new Set<string>([
+  'vaultSubfolder',
+  'includeAudioLink',
+  'includeImages',
+  'voiceSentenceSplit',
+  'tagPrefix',
+  'discoveryMode',
+  'fetchDelay',
+  'scanDepth',
+  'dateFormat',
+  'customTemplate',
+  'enableInjectBtn',
+  'injectBtnYoutube',
+  'injectBtnBilibili',
+  'injectBtnXiaoyuzhou',
+  'feedAutoCheck',
+  'feedCheckInterval',
+  'feedAutoSubmit',
+  'fmTitle',
+  'fmCreated',
+  'fmModified',
+  'fmSource',
+  'fmType',
+  'fmTags',
+  'fmBijiId',
+  'fmExported',
+]);
+
+const settingFieldNames = new Set<string>([
+  'exportMode',
+  'filenameTemplate',
+  'transcriptMode',
+  'folderMode',
+  'imageFormat',
+]);
 
 // --- Generic radio group handler ---
 function initRadioGroup(groupId: string): void {
@@ -84,6 +137,102 @@ function setRadioGroupValue(name: string, value: string): void {
 function getRadioGroupValue(name: string): string | null {
   const checked = document.querySelector('input[name="' + name + '"]:checked') as HTMLInputElement | null;
   return checked ? checked.value : null;
+}
+
+function clearPendingSaveTimer(): void {
+  if (pendingSaveTimer !== null) {
+    window.clearTimeout(pendingSaveTimer);
+    pendingSaveTimer = null;
+  }
+}
+
+function formatSaveTime(): string {
+  return new Date().toLocaleTimeString('zh-CN', { hour12: false });
+}
+
+function setAutosaveState(state: 'saved' | 'pending' | 'saving' | 'error', text?: string): void {
+  autosaveState.className = 'autosave-state ' + state;
+  if (text) {
+    autosaveState.textContent = text;
+    return;
+  }
+
+  if (state === 'saved') autosaveState.textContent = '已自动保存';
+  if (state === 'pending') autosaveState.textContent = '检测到修改，准备自动保存';
+  if (state === 'saving') autosaveState.textContent = '自动保存中...';
+  if (state === 'error') autosaveState.textContent = '保存失败，请重试';
+}
+
+function setActiveTab(tabId: string): void {
+  const validTab = Array.from(settingsTabs).find(function (tab) {
+    return tab.dataset.tab === tabId;
+  });
+  const nextTabId = validTab ? tabId : (settingsTabs[0]?.dataset.tab || 'export');
+
+  settingsTabs.forEach(function (tab) {
+    tab.classList.toggle('active', tab.dataset.tab === nextTabId);
+  });
+
+  settingsPanels.forEach(function (panel) {
+    panel.classList.toggle('active', panel.dataset.panel === nextTabId);
+  });
+
+  localStorage.setItem(ACTIVE_TAB_STORAGE_KEY, nextTabId);
+}
+
+function initTabs(): void {
+  if (settingsTabs.length === 0) return;
+  const stored = localStorage.getItem(ACTIVE_TAB_STORAGE_KEY);
+  setActiveTab(stored || settingsTabs[0].dataset.tab || 'export');
+
+  settingsTabs.forEach(function (tab) {
+    tab.addEventListener('click', function () {
+      setActiveTab(tab.dataset.tab || 'export');
+    });
+  });
+}
+
+function isSettingsControl(target: EventTarget | null): target is HTMLInputElement | HTMLSelectElement {
+  if (!(target instanceof HTMLInputElement || target instanceof HTMLSelectElement)) return false;
+  if (target.id && settingFieldIds.has(target.id)) return true;
+  if (target.name && settingFieldNames.has(target.name)) return true;
+  return false;
+}
+
+function shouldDebounceControl(target: HTMLInputElement | HTMLSelectElement): boolean {
+  return target instanceof HTMLInputElement && (target.type === 'text' || target.type === 'number');
+}
+
+function scheduleAutoSave(delayMs: number): void {
+  if (!hasLoadedSettings) return;
+
+  clearPendingSaveTimer();
+  setAutosaveState('pending', delayMs > 0 ? '检测到修改，准备自动保存' : '检测到修改，正在自动保存');
+
+  if (delayMs <= 0) {
+    persistSettings('auto');
+    return;
+  }
+
+  pendingSaveTimer = window.setTimeout(function () {
+    pendingSaveTimer = null;
+    persistSettings('auto');
+  }, delayMs);
+}
+
+function bindAutoSave(): void {
+  document.addEventListener('input', function (event) {
+    const target = event.target;
+    if (!isSettingsControl(target)) return;
+    if (!shouldDebounceControl(target)) return;
+    scheduleAutoSave(INPUT_SAVE_DEBOUNCE_MS);
+  });
+
+  document.addEventListener('change', function (event) {
+    const target = event.target;
+    if (!isSettingsControl(target)) return;
+    scheduleAutoSave(0);
+  });
 }
 
 // Init all radio groups
@@ -233,6 +382,68 @@ function setFrontmatterFields(fields: Record<string, boolean>): void {
   });
 }
 
+function collectSettings(): Settings {
+  const exportModeValue = document.querySelector('input[name="exportMode"]:checked') as HTMLInputElement | null;
+  return {
+    exportMode: (exportModeValue ? exportModeValue.value : 'zip') as 'zip' | 'vault',
+    vaultSubfolder: vaultSubfolder.value.trim() || DEFAULT_SETTINGS.vaultSubfolder,
+    includeAudioLink: includeAudioLink.checked,
+    includeImages: includeImages.checked,
+    voiceSentenceSplit: voiceSentenceSplit.checked,
+    tagPrefix: tagPrefix.value || '#',
+    discoveryMode: discoveryMode.checked,
+    fetchDelay: Math.max(100, Math.min(5000, parseInt(fetchDelay.value, 10) || 500)),
+    scanDepth: Math.max(4, Math.min(20, parseInt(scanDepth.value, 10) || 10)),
+    filenameTemplate: getEffectiveFilenameTemplate(),
+    dateFormat: dateFormat.value || 'YYYY-MM-DD',
+    transcriptMode: (getRadioGroupValue('transcriptMode') || 'none') as Settings['transcriptMode'],
+    folderMode: (getRadioGroupValue('folderMode') || 'flat') as Settings['folderMode'],
+    frontmatterFields: getFrontmatterFields(),
+    imageFormat: (getRadioGroupValue('imageFormat') || 'link') as Settings['imageFormat'],
+    enableInjectBtn: enableInjectBtn.checked,
+    injectBtnYoutube: injectBtnYoutube.checked,
+    injectBtnBilibili: injectBtnBilibili.checked,
+    injectBtnXiaoyuzhou: injectBtnXiaoyuzhou.checked,
+    feedAutoCheck: feedAutoCheck.checked,
+    feedCheckInterval: parseInt(feedCheckInterval.value, 10) || 60,
+    feedAutoSubmit: feedAutoSubmit ? feedAutoSubmit.checked : true,
+  };
+}
+
+function persistSettings(source: SaveSource): void {
+  if (!hasLoadedSettings) return;
+
+  if (saveInFlight) {
+    queuedSaveSource = source === 'manual' ? 'manual' : (queuedSaveSource || 'auto');
+    return;
+  }
+
+  clearPendingSaveTimer();
+  saveInFlight = true;
+  setAutosaveState('saving', source === 'manual' ? '保存中...' : '自动保存中...');
+
+  const settings = collectSettings();
+  chrome.storage.local.set({ settings, discoveryMode: settings.discoveryMode }, function () {
+    saveInFlight = false;
+
+    if (chrome.runtime.lastError) {
+      setAutosaveState('error', '保存失败，请重试');
+      showStatus('error', '保存失败: ' + chrome.runtime.lastError.message);
+    } else {
+      setAutosaveState('saved', '已保存 ' + formatSaveTime());
+      if (source === 'manual') {
+        showStatus('success', '设置已保存');
+      }
+    }
+
+    if (queuedSaveSource) {
+      const nextSource = queuedSaveSource;
+      queuedSaveSource = null;
+      persistSettings(nextSource);
+    }
+  });
+}
+
 // --- Load settings ---
 function loadSettings(): void {
   chrome.storage.local.get('settings', function (data: Record<string, any>) {
@@ -283,6 +494,9 @@ function loadSettings(): void {
 
     chrome.storage.local.set({ discoveryMode: s.discoveryMode });
     updateFolderHint();
+
+    hasLoadedSettings = true;
+    setAutosaveState('saved', '已加载当前设置');
   });
 
   updateVaultStatus();
@@ -291,41 +505,18 @@ function loadSettings(): void {
 
 // --- Save settings ---
 function saveSettings(): void {
-  const exportModeValue = document.querySelector('input[name="exportMode"]:checked') as HTMLInputElement | null;
-  const settings: Settings = {
-    exportMode: (exportModeValue ? exportModeValue.value : 'zip') as 'zip' | 'vault',
-    vaultSubfolder: vaultSubfolder.value.trim() || DEFAULT_SETTINGS.vaultSubfolder,
-    includeAudioLink: includeAudioLink.checked,
-    includeImages: includeImages.checked,
-    voiceSentenceSplit: voiceSentenceSplit.checked,
-    tagPrefix: tagPrefix.value || '#',
-    discoveryMode: discoveryMode.checked,
-    fetchDelay: Math.max(100, Math.min(5000, parseInt(fetchDelay.value, 10) || 500)),
-    scanDepth: Math.max(4, Math.min(20, parseInt(scanDepth.value, 10) || 10)),
-    filenameTemplate: getEffectiveFilenameTemplate(),
-    dateFormat: dateFormat.value || 'YYYY-MM-DD',
-    transcriptMode: (getRadioGroupValue('transcriptMode') || 'none') as Settings['transcriptMode'],
-    folderMode: (getRadioGroupValue('folderMode') || 'flat') as Settings['folderMode'],
-    frontmatterFields: getFrontmatterFields(),
-    imageFormat: (getRadioGroupValue('imageFormat') || 'link') as Settings['imageFormat'],
-    enableInjectBtn: enableInjectBtn.checked,
-    injectBtnYoutube: injectBtnYoutube.checked,
-    injectBtnBilibili: injectBtnBilibili.checked,
-    injectBtnXiaoyuzhou: injectBtnXiaoyuzhou.checked,
-    feedAutoCheck: feedAutoCheck.checked,
-    feedCheckInterval: parseInt(feedCheckInterval.value, 10) || 60,
-    feedAutoSubmit: feedAutoSubmit ? feedAutoSubmit.checked : true,
-  };
-
-  chrome.storage.local.set({ settings, discoveryMode: settings.discoveryMode }, function () {
-    showStatus('success', '设置已保存');
-  });
+  persistSettings('manual');
 }
 
 // --- Reset to defaults ---
 function resetSettings(): void {
   if (!confirm('确定要恢复所有设置为默认值吗？')) return;
+
+  clearPendingSaveTimer();
+  queuedSaveSource = null;
+
   chrome.storage.local.set({ settings: DEFAULT_SETTINGS, discoveryMode: DEFAULT_SETTINGS.discoveryMode }, function () {
+    hasLoadedSettings = false;
     loadSettings();
     showStatus('success', '设置已恢复为默认值');
   });
@@ -333,10 +524,19 @@ function resetSettings(): void {
 
 // --- Status messages ---
 function showStatus(type: string, text: string): void {
+  if (statusMsgTimer !== null) {
+    window.clearTimeout(statusMsgTimer);
+    statusMsgTimer = null;
+  }
+
   statusMsg.className = 'status-msg ' + type;
   statusMsg.textContent = text;
   statusMsg.style.display = 'block';
-  setTimeout(function () { statusMsg.style.display = 'none'; }, 3000);
+
+  statusMsgTimer = window.setTimeout(function () {
+    statusMsg.style.display = 'none';
+    statusMsgTimer = null;
+  }, 3000);
 }
 
 // --- Feed management UI ---
@@ -351,7 +551,10 @@ function renderFeedList(feeds: any[]): void {
   const items = feedList.querySelectorAll('.feed-item');
   items.forEach(function (item) { item.remove(); });
 
-  if (feeds.length === 0) { feedEmptyHint.style.display = 'block'; return; }
+  if (feeds.length === 0) {
+    feedEmptyHint.style.display = 'block';
+    return;
+  }
   feedEmptyHint.style.display = 'none';
 
   feeds.forEach(function (feed) {
@@ -428,7 +631,10 @@ btnCheckFeedsNow.addEventListener('click', function () {
   feedCheckStatus.textContent = '检查中...';
   chrome.runtime.sendMessage({ type: 'checkFeedsNow' }, function (resp: any) {
     btnCheckFeedsNow.disabled = false;
-    if (chrome.runtime.lastError) { feedCheckStatus.textContent = '检查失败'; return; }
+    if (chrome.runtime.lastError) {
+      feedCheckStatus.textContent = '检查失败';
+      return;
+    }
     if (resp && resp.ok) {
       const r = resp.result || {};
       feedCheckStatus.textContent = '已检查 ' + (r.checked || 0) + ' 个源，新提交 ' + (r.newItems || 0) + ' 条';
@@ -444,4 +650,6 @@ btnSave.addEventListener('click', saveSettings);
 btnReset.addEventListener('click', resetSettings);
 
 // --- Init ---
+initTabs();
+bindAutoSave();
 loadSettings();
