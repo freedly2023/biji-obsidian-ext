@@ -228,6 +228,16 @@ function _buildTranscriptChildren(note: Note, settings: Settings): any[] {
 }
 
 export function generateDocx(note: Note, settings: Settings): Promise<Blob> {
+  // In merged mode, server DOCX may not include transcript sections for some note types.
+  if (settings.transcriptMode === 'merged') {
+    if (typeof docx === 'undefined') {
+      return Promise.reject(new Error('docx library not loaded'));
+    }
+    const children = _buildNoteChildren(note, settings);
+    const doc = new docx.Document({ sections: [{ properties: {}, children }] });
+    return docx.Packer.toBlob(doc);
+  }
+
   return serverExportNote(note.id, 'docx').catch((err: Error) => {
     console.warn('[Biji Ext] Server DOCX failed, using local generation:', err.message);
     if (typeof docx === 'undefined') {
