@@ -331,27 +331,41 @@ export function submitFeedItems(
     chrome.storage.local.get(FEED_ITEMS_KEY, (data: Record<string, any>) => {
       const allItems = data[FEED_ITEMS_KEY] || {};
       const toSubmit = guids.map(g => allItems[g]).filter(Boolean);
+      const prevStatusByGuid: Record<string, string> = {};
 
-      const promises = toSubmit.map((item, idx) => {
-        return new Promise<void>(r => { setTimeout(r, idx * STAGGER_MS); })
-          .then(() => {
-            return submitLink(item.url, item.title, capturedHeaders)
-              .then(result => {
-                item.status = 'submitted';
-                item.submittedAt = new Date().toISOString();
-                item.noteId = (result && result.noteId) || null;
-                markItemSubmitted(item.guid || item.url);
-                if (item.noteId && item.tags && item.tags.length > 0) {
-                  storePendingTags(item.noteId, item.tags);
-                }
-                return { guid: item.guid, noteId: item.noteId, error: null };
-              })
-              .catch(err => ({ guid: item.guid, noteId: null, error: err.message }));
-          });
+      toSubmit.forEach(item => {
+        const guid = item.guid || item.url;
+        prevStatusByGuid[guid] = item.status || 'new';
+        item.status = 'submitting';
       });
 
-      Promise.all(promises).then(results => {
-        saveFeedItems(allItems).then(() => resolve(results));
+      saveFeedItems(allItems).then(() => {
+        const promises = toSubmit.map((item, idx) => {
+          return new Promise<void>(r => { setTimeout(r, idx * STAGGER_MS); })
+            .then(() => {
+              return submitLink(item.url, item.title, capturedHeaders)
+                .then(result => {
+                  item.status = 'submitted';
+                  item.submittedAt = new Date().toISOString();
+                  item.noteId = (result && result.noteId) || null;
+                  markItemSubmitted(item.guid || item.url);
+                  if (item.noteId && item.tags && item.tags.length > 0) {
+                    storePendingTags(item.noteId, item.tags);
+                  }
+                  return { guid: item.guid, noteId: item.noteId, error: null };
+                })
+                .catch(err => {
+                  const guid = item.guid || item.url;
+                  const prev = prevStatusByGuid[guid];
+                  item.status = prev && prev !== 'submitting' ? prev : 'new';
+                  return { guid: item.guid, noteId: null, error: err.message };
+                });
+            });
+        });
+
+        Promise.all(promises).then(results => {
+          saveFeedItems(allItems).then(() => resolve(results));
+        });
       });
     });
   });
