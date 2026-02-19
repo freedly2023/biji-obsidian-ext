@@ -1,6 +1,6 @@
 # Biji to Obsidian — Chrome Extension 开发文档
 
-> 版本 1.4.0 | 最后更新 2026-02-15
+> 版本 1.4.0 | 最后更新 2026-02-19
 
 ---
 
@@ -538,6 +538,33 @@ inject.js 中 hook 了 `window.fetch`，但主动获取使用的是 hook 前保�
 - 字体: `-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif`
 - popup 宽度固定 380px
 - options 页面最大宽度 800px
+
+### 8.6 Transcript PDF 空白问题复盘（2026-02-19）
+
+**现象：**
+
+- `transcriptMode=separate` 时，`xxx-transcript.pdf` 可能出现空白页
+- 同一条笔记导出的 MD / DOCX 正常
+
+**根因总结：**
+
+- 在扩展页面（popup / notes）里，`html2pdf + html2canvas` 对“隐藏或离屏容器 + clone 阶段强干预”比较敏感，容易捕获到空白画布
+- 仅用 `content.includes('<') && content.includes('>')` 判定 HTML 过于宽松，会误伤普通文本（例如 `<音乐>`）
+
+**最终稳定方案（`src/services/pdf-converter.ts`）：**
+
+- `_generateLocalPdf` 使用双通道：
+- 先 `html2pdf().from(html, 'string')`（尽量脱离页面 DOM 干扰）
+- 失败后 fallback 到 DOM 容器渲染（本地兜底）
+- 不再在 `onclone` 中大规模隐藏/删除 `body` 子节点
+- 输出阶段兼容 `toPdf().output('blob')` / `outputPdf('blob')` / `output('blob')`
+- transcript 内容清洗前改用 `looksLikeHtmlFragment()`，仅在“真的像 HTML 标签”时才走 `htmlToText/stripHtml`
+
+**排错日志约定：**
+
+- 成功日志：`[Biji Ext] Transcript PDF generated via string|dom size: <bytes>`
+- 退化日志：`[Biji Ext] html2pdf string source failed, fallback to DOM container: ...`
+- 若 blob 过小（<1024 bytes）会直接抛错，避免静默生成“看似成功但空白”的 PDF
 
 ---
 
