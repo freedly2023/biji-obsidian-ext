@@ -1,8 +1,8 @@
-# Biji 转 Obsidian 插件（1.0.0）
+# 欢迎使用 GET笔记超级助手
 
 订阅更新、视频播客一键提交转录、批量下载导出，支持 Obsidian。
 
-## 主要功能
+## 功能亮点
 
 - 支持导出为 Markdown、PDF、DOCX。
 - 支持 ZIP 下载，或直接写入 Obsidian Vault。
