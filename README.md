@@ -1,24 +1,22 @@
 # Biji 转 Obsidian 插件（1.0.0）
 
-这是一个浏览器扩展，用于把 Get 笔记（biji.com）内容导出为 Obsidian 可用的 Markdown，并支持订阅源追踪与一键提交。
+订阅更新、视频播客一键提交转录、批量下载导出，支持 Obsidian。
 
 ## 主要功能
 
-- 导出笔记为 Markdown、PDF、DOCX
-- 支持 ZIP 下载或直接写入 Obsidian 仓库目录
-- 支持文件命名模板、Frontmatter 字段控制、标签与图片策略
-- 支持“仅导出新增笔记”
-- 支持页面内注入按钮（YouTube、B 站、小宇宙）
-- 支持订阅源管理、定时检查与批量提交
-- 提供笔记管理页与订阅管理页，便于筛选、批量处理
+- 支持导出为 Markdown、PDF、DOCX。
+- 支持 ZIP 下载，或直接写入 Obsidian Vault。
+- 支持命名模板、Frontmatter 字段与标签策略。
+- 支持“仅导出新增笔记”，减少重复导出。
+- 支持订阅源管理、定时检查与批量提交。
+- 支持 YouTube、B 站、小宇宙页面注入按钮。
 
 ## 安装方式（开发者模式）
 
 1. 打开浏览器扩展管理页（如 `chrome://extensions/`）。
 2. 开启“开发者模式”。
 3. 点击“加载已解压的扩展程序”。
-4. 选择本项目根目录：
-   `/Volumes/home/Drive/vibe-code/biji-obsidian/biji-obsidian-ext`
+4. 选择本项目根目录：`biji-obsidian-ext`
 
 ## 快速上手
 
@@ -50,4 +48,4 @@
 
 ## 帮助文档
 
-详细使用步骤与常见问题请查看：`HELP.md`
+详细使用步骤与常见问题请查看：`HELP.html`
