@@ -327,11 +327,15 @@ async function _createA4PdfInstance(): Promise<any> {
     pdf.setPage(1);
   }
 
-  console.info('[Biji Ext] jsPDF resolved via html2pdf worker seed');
   return pdf;
 }
 
-async function _generateMergedPdfByCanvas(note: Note, settings: Settings): Promise<Blob> {
+async function _generateMergedPdfByCanvas(
+  note: Note,
+  settings: Settings,
+  opts?: { logPrefix?: string },
+): Promise<Blob> {
+  const logPrefix = opts && opts.logPrefix ? opts.logPrefix : 'Merged PDF';
 
   function toPlainText(raw: string): string {
     return normalizeRenderableText(raw);
@@ -354,7 +358,7 @@ async function _generateMergedPdfByCanvas(note: Note, settings: Settings): Promi
     const canvas = document.createElement('canvas');
     canvas.width = pageWidthPx;
     canvas.height = pageHeightPx;
-    const ctx = canvas.getContext('2d');
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
     if (!ctx) {
       throw new Error('2d canvas context unavailable');
     }
@@ -443,6 +447,27 @@ async function _generateMergedPdfByCanvas(note: Note, settings: Settings): Promi
 
   pages.push(page.canvas);
 
+  function canvasHasInk(canvas: HTMLCanvasElement): boolean {
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return false;
+    const stepX = Math.max(12, Math.floor(canvas.width / 80));
+    const stepY = Math.max(12, Math.floor(canvas.height / 110));
+    for (let y = 0; y < canvas.height; y += stepY) {
+      for (let x = 0; x < canvas.width; x += stepX) {
+        const data = ctx.getImageData(x, y, 1, 1).data;
+        if (data[3] > 0 && (data[0] < 245 || data[1] < 245 || data[2] < 245)) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  const hasInk = pages.some(canvasHasInk);
+  if (!hasInk && (mainText.trim() || transcriptText.trim() || (note.title || '').trim())) {
+    throw new Error('Canvas rendered blank pages for non-empty merged note');
+  }
+
   const pdf = await _createA4PdfInstance();
   const pageWidthMm = pdf.internal.pageSize.getWidth();
   const pageHeightMm = pdf.internal.pageSize.getHeight();
@@ -460,7 +485,7 @@ async function _generateMergedPdfByCanvas(note: Note, settings: Settings): Promi
   if (!blob || blob.size < 1024) {
     throw new Error('Canvas merged PDF appears empty (' + (blob ? blob.size : 0) + ' bytes)');
   }
-  console.info('[Biji Ext] Merged PDF generated via canvas pages:', pages.length, 'size:', blob.size);
+  console.info('[Biji Ext] ' + logPrefix + ' generated via canvas pages:', pages.length, 'size:', blob.size);
   return blob;
 }
 
@@ -638,7 +663,7 @@ export function generatePdf(note: Note, settings: Settings): Promise<Blob> {
   // so always use local rendering for consistent merged output.
   const needLocalTranscript = settings.transcriptMode === 'merged';
   if (needLocalTranscript) {
-    return _generateMergedPdfByCanvas(note, settings).catch((err: Error) => {
+    return _generateMergedPdfByCanvas(note, settings, { logPrefix: 'Merged PDF' }).catch((err: Error) => {
       console.warn('[Biji Ext] Canvas merged PDF failed, fallback to html2pdf:', err.message);
       const mergedHtml = buildMergedPdfHtml(note, settings);
       return _generateLocalPdf(mergedHtml);
@@ -659,32 +684,44 @@ export function generateTranscriptPdf(note: Note, settings: Settings): Promise<B
     return Promise.reject(new Error('Transcript content is empty'));
   }
 
-  let html =
-    "<div style=\"font-family: -apple-system, 'Microsoft YaHei', 'PingFang SC', sans-serif; max-width: 700px; margin: 0 auto; padding: 20px; font-size: 14px; line-height: 1.8; color: #333;\">";
-  html +=
-    '<h1 style="font-size: 22px; font-weight: 600; margin-bottom: 16px; color: #222;">' +
-    escapeHtml(note.title || 'Untitled') + ' — Transcript</h1>';
-  // Avoid stripping normal text like "<音乐>" unless it really looks like HTML tags.
-  if (looksLikeHtmlFragment(content)) {
-    content = htmlToText(content) || stripHtml(content) || content;
-  }
-  if (looksLikeMarkdown(content)) {
-    html += '<div>' + mdToHtml(content) + '</div>';
-  } else {
-    let text = content.replace(/\r\n/g, '\n');
-    if (note.type === 'voice' && settings.voiceSentenceSplit !== false) {
-      text = text.replace(/([。！？.!?])\s*/g, '$1\n\n');
+  const transcriptCanvasNote: Note = {
+    ...note,
+    title: (note.title || 'Untitled') + ' — Transcript',
+    content: content,
+    rawTranscript: null,
+    audioUrl: null,
+    createdAt: '',
+  };
+  return _generateMergedPdfByCanvas(transcriptCanvasNote, settings, { logPrefix: 'Transcript PDF' }).catch((canvasErr: Error) => {
+    console.warn('[Biji Ext] Transcript canvas failed, fallback to html2pdf:', canvasErr.message);
+
+    let html =
+      "<div style=\"font-family: -apple-system, 'Microsoft YaHei', 'PingFang SC', sans-serif; max-width: 700px; margin: 0 auto; padding: 20px; font-size: 14px; line-height: 1.8; color: #333;\">";
+    html +=
+      '<h1 style="font-size: 22px; font-weight: 600; margin-bottom: 16px; color: #222;">' +
+      escapeHtml(note.title || 'Untitled') + ' — Transcript</h1>';
+    // Avoid stripping normal text like "<音乐>" unless it really looks like HTML tags.
+    if (looksLikeHtmlFragment(content)) {
+      content = htmlToText(content) || stripHtml(content) || content;
     }
-    const paragraphs = text.split(/\n\n+/);
-    paragraphs.forEach(p => {
-      if (p.trim()) {
-        html += '<p style="margin: 10px 0;">' +
-          escapeHtml(p.trim()).replace(/\n/g, '<br>') + '</p>';
+    if (looksLikeMarkdown(content)) {
+      html += '<div>' + mdToHtml(content) + '</div>';
+    } else {
+      let text = content.replace(/\r\n/g, '\n');
+      if (note.type === 'voice' && settings.voiceSentenceSplit !== false) {
+        text = text.replace(/([。！？.!?])\s*/g, '$1\n\n');
       }
-    });
-  }
-  html += '</div>';
-  return _generateLocalPdf(html);
+      const paragraphs = text.split(/\n\n+/);
+      paragraphs.forEach(p => {
+        if (p.trim()) {
+          html += '<p style="margin: 10px 0;">' +
+            escapeHtml(p.trim()).replace(/\n/g, '<br>') + '</p>';
+        }
+      });
+    }
+    html += '</div>';
+    return _generateLocalPdf(html);
+  });
 }
 
 export const PDFConverter = { noteToHtml, generatePdf, generateTranscriptPdf };

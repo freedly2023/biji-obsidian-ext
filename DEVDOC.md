@@ -566,6 +566,56 @@ inject.js 中 hook 了 `window.fetch`，但主动获取使用的是 hook 前保�
 - 退化日志：`[Biji Ext] html2pdf string source failed, fallback to DOM container: ...`
 - 若 blob 过小（<1024 bytes）会直接抛错，避免静默生成“看似成功但空白”的 PDF
 
+### 8.7 merged 导出链路复盘（网页链接笔记，2026-02-19）
+
+**现象：**
+
+- `transcriptMode=merged` 时，录音笔记 PDF 可用，但网页链接笔记 PDF 可能空白
+- 导出过程中 popup / 订阅页会出现“背景闪一下”
+- PDF 中 AI 总结曾出现两类问题：
+- Markdown 符号原样输出（`#`、`-`、`**` 等）
+- 过度降级后变成“无结构大段文本”（段落/列表/断句丢失）
+- Markdown 表格缺少可读样式
+
+**根因总结：**
+
+- merged 主导出如果没稳定进入 canvas+jsPDF 链路，会回落到 html2pdf 的复杂渲染链路；网页链接内容更复杂，空白概率更高
+- 仅依赖 `window.jsPDF` 取构造器在扩展页面不总是可靠，导致“看起来已改 canvas，实际仍走 fallback”
+- `compareSources(string+dom)` 会主动触发 DOM 渲染，且容器位于可视区域附近，导致页面闪现
+- Markdown 直接 `htmlToText/stripHtml` 会把结构信息拍平，阅读体验退化
+
+**最终稳定方案（`src/services/pdf-converter.ts`）：**
+
+- merged 主 PDF 固定优先 `canvas 分页 + jsPDF` 渲染
+- 新增 `_createA4PdfInstance()`：
+- 先尝试 `window.jspdf?.jsPDF || window.jsPDF`
+- 失败时通过 `html2pdf Worker` seed 获取 `pdf` 实例（避免因全局对象不可见而退化）
+- merged 失败后才回退 `_generateLocalPdf(mergedHtml)`，并取消 `compareSources` 并发策略
+- `_generateLocalPdf` 维持 `string -> dom fallback`，但 DOM 容器改为超远离屏渲染：
+- `left/top = -100000px`
+- `opacity = 0`
+- 极小 `z-index`
+- 避免 popup/订阅页闪屏
+- 主内容清洗升级为 `normalizeRenderableText()`：
+- HTML 内容先 `htmlToMd` 再按 Markdown 结构化输出
+- Markdown 内容保留“标题/列表/引用/分隔线/段落”结构，只去掉样式符号
+- 新增 Markdown 表格渲染：
+- 识别 `|...|` + 分隔行的标准表格
+- 转换为 Unicode 盒线表格文本（`┌┬┐` / `│` / `└┴┘`）
+- canvas 绘制表格行使用等宽字体，fallback HTML 用 `<pre>` 保持列对齐
+
+**排错日志约定：**
+
+- jsPDF 兜底生效：`[Biji Ext] jsPDF resolved via html2pdf worker seed`
+- merged 主链路成功：`[Biji Ext] Merged PDF generated via canvas pages: <n> size: <bytes>`
+- merged 主链路退化：`[Biji Ext] Canvas merged PDF failed, fallback to html2pdf: ...`
+- 本地 fallback 退化：`[Biji Ext] html2pdf string source failed, fallback to DOM container: ...`
+
+**经验结论：**
+
+- 对“网页链接 + merged + PDF”这类长内容场景，优先使用可控的分页绘制链路，不要把成功率押在 html2canvas 的整页截图
+- 文本清洗不能只追求“去格式”，必须保留结构语义（段落、列表、表格）才能保证可读性
+
 ---
 
 ## 9. 浏览器兼容性

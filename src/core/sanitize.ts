@@ -40,6 +40,12 @@ export function htmlToText(html: string): string {
   return (div.textContent || '').trim();
 }
 
+function looksLikeHtmlFragment(text: string): boolean {
+  if (!text) return false;
+  if (text.indexOf('<') === -1 || text.indexOf('>') === -1) return false;
+  return /<\/?[a-z][\w:-]*(\s[^>]*)?>/i.test(text);
+}
+
 export function parseSentenceList(raw: string): string | null {
   if (!raw || raw.charAt(0) !== '{') return null;
   try {
@@ -59,7 +65,8 @@ export function normalizeTranscript(raw: string): string {
   if (!raw) return '';
   const parsed = parseSentenceList(raw);
   if (parsed) return parsed;
-  if (raw.includes('<') && raw.includes('>')) {
+  // Avoid stripping normal text like "<音乐>" that is not real HTML tags.
+  if (looksLikeHtmlFragment(raw)) {
     return htmlToText(raw) || stripHtml(raw) || raw;
   }
   return raw;

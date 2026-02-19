@@ -181,7 +181,10 @@ export function fetchNoteTranscript(
       });
   }
 
-  return tryUrl(0);
+  return tryUrl(0).then(transcript => {
+    if (transcript) return transcript;
+    return fetchTranscriptFromWebPage(noteId);
+  });
 }
 
 // --- Content fetcher ---
@@ -317,6 +320,83 @@ function _parseSentenceListJson(raw: string): string | null {
   } catch (_) {
     return null;
   }
+}
+
+function decodeHtmlEntities(text: string): string {
+  if (!text) return '';
+  return text
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&#x([0-9a-fA-F]+);/g, (_m, hex: string) => String.fromCharCode(parseInt(hex, 16)))
+    .replace(/&#(\d+);/g, (_m, dec: string) => String.fromCharCode(parseInt(dec, 10)));
+}
+
+function fetchTranscriptFromWebPage(noteId: string): Promise<string | null> {
+  const webUrl = 'https://www.biji.com/note/' + noteId + '/web';
+  log('Transcript API fallback to /web:', webUrl);
+
+  return fetch(webUrl, { method: 'GET', credentials: 'include' })
+    .then(resp => {
+      if (!resp.ok) {
+        log('/web transcript fallback HTTP', resp.status, 'for', noteId);
+        return null;
+      }
+      return resp.text();
+    })
+    .then((html: string | null) => {
+      if (!html) return null;
+
+      const scriptJsonPatterns = [
+        /window\.__INITIAL_STATE__\s*=\s*(\{[\s\S]*?\})\s*;?\s*<\/script>/,
+        /window\.__NUXT__\s*=\s*(\{[\s\S]*?\})\s*;?\s*<\/script>/,
+        /window\.__APP_DATA__\s*=\s*(\{[\s\S]*?\})\s*;?\s*<\/script>/,
+        /<script[^>]*id=["']__NEXT_DATA__["'][^>]*>\s*([\s\S]*?)\s*<\/script>/,
+      ];
+
+      for (let i = 0; i < scriptJsonPatterns.length; i++) {
+        const m = html.match(scriptJsonPatterns[i]);
+        if (!m || !m[1]) continue;
+        try {
+          const obj = JSON.parse(m[1]);
+          const transcript = extractTranscript(obj);
+          if (transcript && transcript.trim().length > 0) {
+            log('Transcript found via /web script JSON, length:', transcript.length);
+            return transcript;
+          }
+        } catch (_) {
+          // ignore and continue
+        }
+      }
+
+      const pTexts: string[] = [];
+      const pRe = /<p[^>]*>([\s\S]*?)<\/p>/gi;
+      let match: RegExpExecArray | null = null;
+      while ((match = pRe.exec(html)) !== null) {
+        let t = match[1] || '';
+        t = t.replace(/<br\s*\/?>/gi, '\n');
+        t = t.replace(/<[^>]+>/g, '');
+        t = decodeHtmlEntities(t).trim();
+        if (t) pTexts.push(t);
+      }
+      if (pTexts.length > 0) {
+        const tsOnly = pTexts.filter(t => /^\[?\d{2}:\d{2}:\d{2}\]?/.test(t));
+        if (tsOnly.length > 3) {
+          const out = tsOnly.join('\n\n');
+          log('Transcript found via /web <p> timestamp scan, count:', tsOnly.length, 'length:', out.length);
+          return out;
+        }
+      }
+
+      return null;
+    })
+    .catch(e => {
+      console.warn('[Biji Ext] /web transcript fallback failed for', noteId, e && e.message ? e.message : e);
+      return null;
+    });
 }
 
 function findTimestampStrings(obj: any, results: string[], depth: number): void {
