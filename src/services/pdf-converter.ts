@@ -15,6 +15,12 @@ const PDF_LIGHTWEIGHT = {
   jsPdfCompress: true,
 } as const;
 
+const PDF_RENDER_SAFETY = {
+  bottomReservePx: 24,
+  lineDescentPadPx: 4,
+  htmlBottomPadPx: 24,
+} as const;
+
 function looksLikeHtmlFragment(text: string): boolean {
   if (!text) return false;
   if (text.indexOf('<') === -1 || text.indexOf('>') === -1) return false;
@@ -369,7 +375,7 @@ async function _generateMergedPdfByCanvas(
   const pageHeightPx = 1754;
   const marginPx = 72;
   const maxTextWidthPx = pageWidthPx - marginPx * 2;
-  const maxY = pageHeightPx - marginPx;
+  const maxY = pageHeightPx - marginPx - PDF_RENDER_SAFETY.bottomReservePx;
 
   function createPage(): { canvas: HTMLCanvasElement; ctx: CanvasRenderingContext2D } {
     const canvas = document.createElement('canvas');
@@ -396,7 +402,7 @@ async function _generateMergedPdfByCanvas(
   }
 
   function ensureSpace(heightPx: number): void {
-    if (y + heightPx > maxY) nextPage();
+    if (y + heightPx + PDF_RENDER_SAFETY.lineDescentPadPx > maxY) nextPage();
   }
 
   function drawBlock(
@@ -433,7 +439,10 @@ async function _generateMergedPdfByCanvas(
         const measureCtx = applyTextStyle(currentFontPx, tableLine);
         const wrappedLines = wrapTextByWidth(measureCtx, rawLine, maxTextWidthPx);
         wrappedLines.forEach(line => {
-          ensureSpace(currentLineHeight);
+          const metrics = measureCtx.measureText(line || ' ');
+          const descent = Math.ceil((metrics.actualBoundingBoxDescent || 0) + PDF_RENDER_SAFETY.lineDescentPadPx);
+          const requiredHeight = Math.max(currentLineHeight, currentFontPx + descent);
+          ensureSpace(requiredHeight);
           const drawCtx = applyTextStyle(currentFontPx, tableLine);
           drawCtx.fillText(line, marginPx, y);
           y += currentLineHeight;
@@ -592,6 +601,11 @@ function _generateLocalPdf(htmlContent: string): Promise<Blob> {
     return Promise.reject(new Error('html2pdf library not loaded'));
   }
 
+  const htmlWithBottomPad =
+    '<div style="padding-bottom:' + PDF_RENDER_SAFETY.htmlBottomPadPx + 'px;">' +
+    htmlContent +
+    '</div>';
+
   const opt = {
     margin: [10, 10, 10, 10],
     filename: 'note.pdf',
@@ -629,7 +643,7 @@ function _generateLocalPdf(htmlContent: string): Promise<Blob> {
 
   function renderFromString(): Promise<Blob> {
     try {
-      const worker = (html2pdf() as any).set(opt).from(htmlContent, 'string');
+      const worker = (html2pdf() as any).set(opt).from(htmlWithBottomPad, 'string');
       return run(worker, 'string');
     } catch (err) {
       return Promise.reject(err);
@@ -638,7 +652,7 @@ function _generateLocalPdf(htmlContent: string): Promise<Blob> {
 
   function renderFromDomContainer(): Promise<Blob> {
     const container = document.createElement('div');
-    container.innerHTML = htmlContent;
+    container.innerHTML = htmlWithBottomPad;
     container.setAttribute('data-pdf-render', '1');
     container.setAttribute('aria-hidden', 'true');
     container.style.position = 'fixed';
