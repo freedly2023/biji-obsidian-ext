@@ -2,7 +2,6 @@
 // Converted from popup.js — window.* globals replaced with imports
 
 import { loadSettingsCb } from '../../services/settings-service';
-import { sortNotesByDate } from '../../core/sort-utils';
 import { MD } from '../../core/markdown-converter';
 import { escapeHtml } from '../../core/sanitize';
 import { ExportTracker } from '../../services/export-tracker';
@@ -10,6 +9,15 @@ import { ExportEngine } from '../../services/export-engine';
 import { VaultWriterModule as VaultWriter } from '../../services/vault-writer';
 import { loadSubsTab } from './subs-tab';
 import type { Settings, Note } from '../../core/types';
+
+type PopupNoteMeta = {
+  id: string;
+  title: string;
+  createdAt: string | number;
+  updatedAt: string | number;
+  type: string;
+  noteType: string | null;
+};
 
 // --- DOM references ---
 const noteCountEl = document.getElementById('noteCount')!;
@@ -54,7 +62,7 @@ const btnCancelFetch = document.getElementById('btnCancelFetch') as HTMLButtonEl
 const fetchStatusEl = document.getElementById('fetchStatus')!;
 
 // --- Tracked state ---
-let allNotes: Note[] = [];
+let allNotes: PopupNoteMeta[] = [];
 let selectedIds: Record<string, boolean> = {};
 let currentSettings: Settings = {} as Settings;
 let activeExportFormat: 'zip' | 'vault' = 'zip';
@@ -112,10 +120,42 @@ function updateExportButtonText(): void {
   }
 }
 
-function getNotesToExport(): Note[] {
-  const count = getSelectedCount();
-  if (count === 0) return allNotes;
-  return allNotes.filter(function (n) { return selectedIds[n.id]; });
+function getTargetNoteIds(): string[] {
+  const selected = Object.keys(selectedIds);
+  if (selected.length > 0) return selected;
+  return allNotes.map(function (n) { return n.id; });
+}
+
+function loadFullNotesByIds(ids: string[]): Promise<Note[]> {
+  if (!ids.length) return Promise.resolve([]);
+  return new Promise(resolve => {
+    chrome.runtime.sendMessage({ type: 'getNotesByIds', ids }, function (res: any) {
+      if (chrome.runtime.lastError) {
+        console.warn('[Biji Ext] getNotesByIds failed:', chrome.runtime.lastError.message);
+        resolve([]);
+        return;
+      }
+      const notes = res && Array.isArray(res.notes) ? res.notes : [];
+      resolve(notes as Note[]);
+    });
+  });
+}
+
+function resolveNotesToExport(): Promise<Note[]> {
+  return loadFullNotesByIds(getTargetNoteIds());
+}
+
+function toCreatedAtMs(value: string | number): number {
+  if (!value) return 0;
+  if (typeof value === 'number') return value > 1e12 ? value : value * 1000;
+  const ts = new Date(value).getTime();
+  return Number.isFinite(ts) ? ts : 0;
+}
+
+function sortNotesMetaByDate(arr: PopupNoteMeta[]): void {
+  arr.sort(function (a, b) {
+    return toCreatedAtMs(b.createdAt) - toCreatedAtMs(a.createdAt);
+  });
 }
 
 // --- File format toggle (MD / PDF / DOCX) — multi-select ---
@@ -220,11 +260,32 @@ if (advancedToggle) {
 
 // --- Load data and refresh UI ---
 function refresh(): void {
-  chrome.runtime.sendMessage({ type: 'getNotes' }, function (res: any) {
-    const notes = res && res.notes ? res.notes : {};
-    const arr: Note[] = Object.values(notes);
-    sortNotesByDate(arr);
+  chrome.runtime.sendMessage({ type: 'getNotesMeta' }, function (res: any) {
+    const arrRaw = res && res.notes
+      ? res.notes
+      : [];
+    const arr: PopupNoteMeta[] = (Array.isArray(arrRaw) ? arrRaw : Object.values(arrRaw))
+      .map(function (n: any) {
+        return {
+          id: String(n.id || ''),
+          title: n.title || '',
+          createdAt: n.createdAt || '',
+          updatedAt: n.updatedAt || '',
+          type: n.type || 'text',
+          noteType: n.noteType || null,
+        };
+      })
+      .filter(function (n: PopupNoteMeta) { return !!n.id; });
+    sortNotesMetaByDate(arr);
     allNotes = arr;
+
+    // Keep selection in sync when notes are deleted
+    const alive: Record<string, boolean> = {};
+    arr.forEach(function (n) { alive[n.id] = true; });
+    Object.keys(selectedIds).forEach(function (id) {
+      if (!alive[id]) delete selectedIds[id];
+    });
+
     noteCountEl.textContent = String(arr.length);
 
     // Incremental export badge
@@ -352,62 +413,68 @@ btnExport.addEventListener('click', function () {
 // --- Export to ZIP (multi-format) ---
 function exportToZip(): void {
   loadSettingsLocal(function (settings) {
-    const notes = getNotesToExport();
-    if (notes.length === 0) {
-      alert('\u6682\u65E0\u7B14\u8BB0\u53EF\u5BFC\u51FA\u3002\u8BF7\u5148\u6253\u5F00 biji.com \u6D4F\u89C8\u7B14\u8BB0\u3002');
-      return;
-    }
+    resolveNotesToExport().then(function (notes) {
+      if (notes.length === 0) {
+        alert('\u6682\u65E0\u7B14\u8BB0\u53EF\u5BFC\u51FA\u3002\u8BF7\u5148\u6253\u5F00 biji.com \u6D4F\u89C8\u7B14\u8BB0\u3002');
+        return;
+      }
 
-    let formats = ExportEngine.getActiveFormats(activeFileFormats);
-    if (formats.length === 0) formats = ['md'];
+      let formats = ExportEngine.getActiveFormats(activeFileFormats);
+      if (formats.length === 0) formats = ['md'];
 
-    progressEl.classList.add('active');
-    btnExport.disabled = true;
+      progressEl.classList.add('active');
+      btnExport.disabled = true;
 
-    const needTranscripts = settings.transcriptMode !== 'none' &&
-      notes.some(function (n) { return !n.rawTranscript; });
+      const needTranscripts = settings.transcriptMode !== 'none' &&
+        notes.some(function (n) { return !n.rawTranscript; });
 
-    let chain = Promise.resolve();
+      let chain = Promise.resolve();
 
-    const needContent = notes.some(function (n) { return !n.content || n.content.trim().length === 0; });
-    if (needContent) {
-      ptxtEl.textContent = '\u6B63\u5728\u83B7\u53D6\u7B14\u8BB0\u5185\u5BB9...';
-      chain = chain.then(function () {
-        return ExportEngine.fetchMissingContent(notes, function (done: number, total: number) {
-          ptxtEl.textContent = '\u6B63\u5728\u83B7\u53D6\u5185\u5BB9 ' + done + '/' + total + '...';
+      const needContent = notes.some(function (n) { return !n.content || n.content.trim().length === 0; });
+      if (needContent) {
+        ptxtEl.textContent = '\u6B63\u5728\u83B7\u53D6\u7B14\u8BB0\u5185\u5BB9...';
+        chain = chain.then(function () {
+          return ExportEngine.fetchMissingContent(notes, function (done: number, total: number) {
+            ptxtEl.textContent = '\u6B63\u5728\u83B7\u53D6\u5185\u5BB9 ' + done + '/' + total + '...';
+          });
         });
-      });
-    }
+      }
 
-    if (needTranscripts) {
-      chain = chain.then(function () {
-        ptxtEl.textContent = '\u6B63\u5728\u83B7\u53D6\u539F\u59CB\u6587\u5B57\u8BB0\u5F55...';
-        return ExportEngine.fetchMissingTranscripts(notes, function (done: number, total: number) {
-          ptxtEl.textContent = '\u6B63\u5728\u83B7\u53D6\u6587\u5B57\u8BB0\u5F55 ' + done + '/' + total + '...';
+      if (needTranscripts) {
+        chain = chain.then(function () {
+          ptxtEl.textContent = '\u6B63\u5728\u83B7\u53D6\u539F\u59CB\u6587\u5B57\u8BB0\u5F55...';
+          return ExportEngine.fetchMissingTranscripts(notes, function (done: number, total: number) {
+            ptxtEl.textContent = '\u6B63\u5728\u83B7\u53D6\u6587\u5B57\u8BB0\u5F55 ' + done + '/' + total + '...';
+          });
         });
-      });
-    }
+      }
 
-    chain
-      .then(function () {
-        const hasNonMd = formats.indexOf('pdf') !== -1 || formats.indexOf('docx') !== -1;
-        if (hasNonMd && notes.length > 20) {
-          ptxtEl.textContent = 'PDF/DOCX \u751F\u6210\u8F83\u6162\uFF0C\u8BF7\u8010\u5FC3\u7B49\u5F85...';
-        }
-        return ExportEngine.zipExport(notes, settings, formats, function (done: number, total: number) {
-          const pct = Math.round((done / total) * 100);
-          pfillEl.style.width = pct + '%';
-          ptxtEl.textContent = done + ' / ' + total + ' \u7B14\u8BB0\u5DF2\u5904\u7406';
+      chain
+        .then(function () {
+          const hasNonMd = formats.indexOf('pdf') !== -1 || formats.indexOf('docx') !== -1;
+          if (hasNonMd && notes.length > 20) {
+            ptxtEl.textContent = 'PDF/DOCX \u751F\u6210\u8F83\u6162\uFF0C\u8BF7\u8010\u5FC3\u7B49\u5F85...';
+          }
+          return ExportEngine.zipExport(notes, settings, formats, function (done: number, total: number) {
+            const pct = Math.round((done / total) * 100);
+            pfillEl.style.width = pct + '%';
+            ptxtEl.textContent = done + ' / ' + total + ' \u7B14\u8BB0\u5DF2\u5904\u7406';
+          });
+        })
+        .then(function () {
+          ptxtEl.textContent = '\u5BFC\u51FA\u5B8C\u6210\uFF01\u8BF7\u67E5\u770B\u4E0B\u8F7D\u6587\u4EF6\u5939\u3002';
+          btnExport.disabled = false;
+          setTimeout(function () {
+            progressEl.classList.remove('active');
+            refresh();
+          }, 3000);
+        })
+        .catch(function (err: Error) {
+          ptxtEl.textContent = '\u5BFC\u51FA\u5931\u8D25: ' + err.message;
+          btnExport.disabled = false;
+          setTimeout(function () { progressEl.classList.remove('active'); }, 4000);
         });
-      })
-      .then(function () {
-        ptxtEl.textContent = '\u5BFC\u51FA\u5B8C\u6210\uFF01\u8BF7\u67E5\u770B\u4E0B\u8F7D\u6587\u4EF6\u5939\u3002';
-        btnExport.disabled = false;
-        setTimeout(function () {
-          progressEl.classList.remove('active');
-          refresh();
-        }, 3000);
-      });
+    });
   });
 }
 
@@ -419,68 +486,69 @@ function exportToVault(): void {
   }
 
   loadSettingsLocal(function (settings) {
-    const notes = getNotesToExport();
-    if (notes.length === 0) {
-      alert('\u6682\u65E0\u7B14\u8BB0\u53EF\u5BFC\u51FA\u3002\u8BF7\u5148\u6253\u5F00 biji.com \u6D4F\u89C8\u7B14\u8BB0\u3002');
-      return;
-    }
+    resolveNotesToExport().then(function (notes) {
+      if (notes.length === 0) {
+        alert('\u6682\u65E0\u7B14\u8BB0\u53EF\u5BFC\u51FA\u3002\u8BF7\u5148\u6253\u5F00 biji.com \u6D4F\u89C8\u7B14\u8BB0\u3002');
+        return;
+      }
 
-    progressEl.classList.add('active');
-    btnExport.disabled = true;
-    btnExport.textContent = '\u5BFC\u51FA\u4E2D...';
+      progressEl.classList.add('active');
+      btnExport.disabled = true;
+      btnExport.textContent = '\u5BFC\u51FA\u4E2D...';
 
-    const needTranscripts = settings.transcriptMode !== 'none' &&
-      notes.some(function (n) { return !n.rawTranscript; });
+      const needTranscripts = settings.transcriptMode !== 'none' &&
+        notes.some(function (n) { return !n.rawTranscript; });
 
-    let chain = Promise.resolve();
+      let chain = Promise.resolve();
 
-    const needContent = notes.some(function (n) { return !n.content || n.content.trim().length === 0; });
-    if (needContent) {
-      ptxtEl.textContent = '\u6B63\u5728\u83B7\u53D6\u7B14\u8BB0\u5185\u5BB9...';
-      chain = chain.then(function () {
-        return ExportEngine.fetchMissingContent(notes, function (done: number, total: number) {
-          ptxtEl.textContent = '\u6B63\u5728\u83B7\u53D6\u5185\u5BB9 ' + done + '/' + total + '...';
+      const needContent = notes.some(function (n) { return !n.content || n.content.trim().length === 0; });
+      if (needContent) {
+        ptxtEl.textContent = '\u6B63\u5728\u83B7\u53D6\u7B14\u8BB0\u5185\u5BB9...';
+        chain = chain.then(function () {
+          return ExportEngine.fetchMissingContent(notes, function (done: number, total: number) {
+            ptxtEl.textContent = '\u6B63\u5728\u83B7\u53D6\u5185\u5BB9 ' + done + '/' + total + '...';
+          });
         });
-      });
-    }
+      }
 
-    if (needTranscripts) {
-      chain = chain.then(function () {
-        ptxtEl.textContent = '\u6B63\u5728\u83B7\u53D6\u539F\u59CB\u6587\u5B57\u8BB0\u5F55...';
-        return ExportEngine.fetchMissingTranscripts(notes, function (done: number, total: number) {
-          ptxtEl.textContent = '\u6B63\u5728\u83B7\u53D6\u6587\u5B57\u8BB0\u5F55 ' + done + '/' + total + '...';
+      if (needTranscripts) {
+        chain = chain.then(function () {
+          ptxtEl.textContent = '\u6B63\u5728\u83B7\u53D6\u539F\u59CB\u6587\u5B57\u8BB0\u5F55...';
+          return ExportEngine.fetchMissingTranscripts(notes, function (done: number, total: number) {
+            ptxtEl.textContent = '\u6B63\u5728\u83B7\u53D6\u6587\u5B57\u8BB0\u5F55 ' + done + '/' + total + '...';
+          });
         });
-      });
-    }
+      }
 
-    chain
-      .then(function () {
-        return ExportEngine.vaultExport(notes, settings, function (done: number, total: number, written?: number, errorCount?: number) {
-          const pct = Math.round((done / total) * 100);
-          pfillEl.style.width = pct + '%';
-          ptxtEl.textContent = done + ' / ' + total + ' \u5DF2\u5904\u7406 (' + (written || 0) + ' \u5199\u5165, ' + (errorCount || 0) + ' \u9519\u8BEF)';
+      chain
+        .then(function () {
+          return ExportEngine.vaultExport(notes, settings, function (done: number, total: number, written?: number, errorCount?: number) {
+            const pct = Math.round((done / total) * 100);
+            pfillEl.style.width = pct + '%';
+            ptxtEl.textContent = done + ' / ' + total + ' \u5DF2\u5904\u7406 (' + (written || 0) + ' \u5199\u5165, ' + (errorCount || 0) + ' \u9519\u8BEF)';
+          });
+        })
+        .then(function (result: any) {
+          ExportTracker.markExported(notes.map(function (n) { return n.id; }));
+          ptxtEl.textContent = '\u5BFC\u51FA\u5B8C\u6210\uFF01' + result.written + ' \u7BC7\u7B14\u8BB0\u5DF2\u5199\u5165 Vault\u3002';
+          if (result.errors.length > 0) {
+            ptxtEl.textContent += ' (' + result.errors.length + ' \u4E2A\u9519\u8BEF)';
+            console.warn('[Biji Ext] Vault write errors:', result.errors);
+          }
+          btnExport.disabled = false;
+          updateExportButtonText();
+          setTimeout(function () {
+            progressEl.classList.remove('active');
+            refresh();
+          }, 4000);
+        })
+        .catch(function (err: Error) {
+          ptxtEl.textContent = '\u5BFC\u51FA\u5931\u8D25: ' + err.message;
+          btnExport.disabled = false;
+          updateExportButtonText();
+          setTimeout(function () { progressEl.classList.remove('active'); }, 4000);
         });
-      })
-      .then(function (result: any) {
-        ExportTracker.markExported(notes.map(function (n) { return n.id; }));
-        ptxtEl.textContent = '\u5BFC\u51FA\u5B8C\u6210\uFF01' + result.written + ' \u7BC7\u7B14\u8BB0\u5DF2\u5199\u5165 Vault\u3002';
-        if (result.errors.length > 0) {
-          ptxtEl.textContent += ' (' + result.errors.length + ' \u4E2A\u9519\u8BEF)';
-          console.warn('[Biji Ext] Vault write errors:', result.errors);
-        }
-        btnExport.disabled = false;
-        updateExportButtonText();
-        setTimeout(function () {
-          progressEl.classList.remove('active');
-          refresh();
-        }, 4000);
-      })
-      .catch(function (err: Error) {
-        ptxtEl.textContent = '\u5BFC\u51FA\u5931\u8D25: ' + err.message;
-        btnExport.disabled = false;
-        updateExportButtonText();
-        setTimeout(function () { progressEl.classList.remove('active'); }, 4000);
-      });
+    });
   });
 }
 

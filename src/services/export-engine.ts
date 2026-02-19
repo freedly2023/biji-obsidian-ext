@@ -8,6 +8,7 @@ import { fullPath, fullPathWithFormat, getFileExt, deduplicateFilename } from '.
 import { ExportTracker } from './export-tracker';
 import { PDFConverter } from './pdf-converter';
 import { DOCXConverter } from './docx-converter';
+import { ensureExportLibraries } from './runtime-lib-loader';
 
 export function mergePendingTags(notes: Note[]): Promise<Note[]> {
   return new Promise(resolve => {
@@ -178,7 +179,7 @@ export function zipExport(
   formats: string[],
   onProgress?: (done: number, total: number) => void,
 ): Promise<{ success: boolean }> {
-  return mergePendingTags(notes).then(mergedNotes => {
+  return ensureExportLibraries(formats).then(() => mergePendingTags(notes)).then(mergedNotes => {
     const zip = new JSZip();
     const folder = zip.folder('biji-export');
     const used: Record<string, boolean> = {};

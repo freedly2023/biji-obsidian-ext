@@ -29,6 +29,18 @@ type MessageHandler = (
   ctx: RouterContext,
 ) => boolean | void;
 
+function toNoteMeta(note: any): Record<string, any> | null {
+  if (!note || !note.id) return null;
+  return {
+    id: String(note.id),
+    title: note.title || '',
+    createdAt: note.createdAt || '',
+    updatedAt: note.updatedAt || '',
+    type: note.type || 'text',
+    noteType: note.noteType || null,
+  };
+}
+
 const routes: Record<string, MessageHandler> = {
   notes(_msg, _sender, _sendResponse, ctx) {
     ctx.storeNotes(_msg.payload.notes);
@@ -41,6 +53,33 @@ const routes: Record<string, MessageHandler> = {
   getNotes(_msg, _sender, sendResponse) {
     chrome.storage.local.get('notes', data => {
       sendResponse({ notes: data.notes || {} });
+    });
+    return true;
+  },
+
+  getNotesMeta(_msg, _sender, sendResponse) {
+    chrome.storage.local.get('notes', data => {
+      const notes = data.notes || {};
+      const arr = Object.values(notes)
+        .map(toNoteMeta)
+        .filter(Boolean);
+      sendResponse({ notes: arr });
+    });
+    return true;
+  },
+
+  getNotesByIds(msg, _sender, sendResponse) {
+    const ids = Array.isArray(msg.ids) ? msg.ids.map((id: any) => String(id)) : [];
+    chrome.storage.local.get('notes', data => {
+      const notes: Record<string, any> = data.notes || {};
+      if (ids.length === 0) {
+        sendResponse({ notes: [] });
+        return;
+      }
+      const selected = ids
+        .map((id: string) => notes[id])
+        .filter(Boolean);
+      sendResponse({ notes: selected });
     });
     return true;
   },

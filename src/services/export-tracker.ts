@@ -2,7 +2,8 @@
 // Extracted from shared.js ExportTracker
 
 import type { Note } from '../core/types';
-import { storageGet, storageSet, storageRemove } from './storage-service';
+
+type NoteLike = Pick<Note, 'id'>;
 
 let _exportedSet: Set<string> | null = null;
 let _lastExportTime: string | null = null;
@@ -29,11 +30,11 @@ export function isExported(id: string): boolean {
   return _exportedSet ? _exportedSet.has(id) : false;
 }
 
-export function getNewCount(notes: Note[]): number {
+export function getNewCount(notes: NoteLike[]): number {
   return notes.filter(n => !isExported(n.id)).length;
 }
 
-export function getNewNotes(notes: Note[]): Note[] {
+export function getNewNotes<T extends NoteLike>(notes: T[]): T[] {
   return notes.filter(n => !isExported(n.id));
 }
 
