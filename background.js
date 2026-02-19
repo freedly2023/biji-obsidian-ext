@@ -1946,6 +1946,17 @@
     };
     // --- Register listeners ---
     chrome.runtime.onMessage.addListener(createMessageListener(ctx));
+    chrome.runtime.onInstalled.addListener((details) => {
+        if (!details || details.reason !== 'install')
+            return;
+        const url = chrome.runtime.getURL('welcome.html');
+        if (chrome.tabs && chrome.tabs.create) {
+            chrome.tabs.create({ url }, () => {
+                // Ignore "No tab with id" class errors in edge cases.
+                void chrome.runtime.lastError;
+            });
+        }
+    });
     // Feed alarm handler
     chrome.alarms.onAlarm.addListener((alarm) => {
         if (alarm.name === ALARM_NAME) {
