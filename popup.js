@@ -79,21 +79,6 @@
         });
     }
 
-    // Sort utilities
-    // Previously window.sortNotesByDate in shared.js
-    function sortNotesByDate(arr) {
-        arr.sort((a, b) => {
-            const tA = a.createdAt
-                ? new Date(typeof a.createdAt === 'number' ? a.createdAt * 1000 : a.createdAt).getTime()
-                : 0;
-            const tB = b.createdAt
-                ? new Date(typeof b.createdAt === 'number' ? b.createdAt * 1000 : b.createdAt).getTime()
-                : 0;
-            return tB - tA;
-        });
-        return arr;
-    }
-
     // Unified date formatting utilities
     // Previously in shared.js (MD.formatDate, MD.formatDateShort) and subscription-shared.js (formatRelativeDate)
     function pad2(n) {
@@ -2081,421 +2066,905 @@
         writeFile, writeAllNotes, clearHandle, getDirectoryName, isReady, needsPermission,
     };
 
-    // notes.ts — Full-page note management
-    // Converted from notes.js — window.* globals replaced with imports
+    // subscription-shared.ts — Shared UI utilities for subscription pages
+    // Provides feed item card rendering, type/status badges, and formatting
+    // --- Type badge rendering ---
+    const TYPE_COLORS = {
+        youtube: { bg: '#ff0000', text: '#fff' },
+        podcast: { bg: '#8e44ad', text: '#fff' },
+        bilibili: { bg: '#00a1d6', text: '#fff' },
+        other: { bg: '#95a5a6', text: '#fff' },
+    };
+    const TYPE_LABELS = {
+        youtube: 'YouTube',
+        podcast: '播客',
+        bilibili: 'B站',
+        other: '其他',
+    };
+    function typeBadgeHtml(type) {
+        const c = TYPE_COLORS[type] || TYPE_COLORS.other;
+        const label = TYPE_LABELS[type] || type || '其他';
+        return ('<span style="display:inline-block;padding:1px 6px;border-radius:3px;font-size:10px;' +
+            'font-weight:600;background:' + c.bg + ';color:' + c.text + '">' +
+            escapeHtmlAttr(label) + '</span>');
+    }
+    // --- Status badge ---
+    const STATUS_STYLES = {
+        'new': { bg: '#e8f5e9', text: '#2e7d32', label: '未提交' },
+        submitted: { bg: '#e3f2fd', text: '#1565c0', label: '已提交' },
+        noted: { bg: '#f3e5f5', text: '#7b1fa2', label: '已记录' },
+        submitting: { bg: '#fff3e0', text: '#e65100', label: '正在提交' },
+    };
+    function statusBadgeHtml(status) {
+        const s = STATUS_STYLES[status] || STATUS_STYLES['new'];
+        return ('<span style="display:inline-block;padding:1px 6px;border-radius:3px;font-size:10px;' +
+            'background:' + s.bg + ';color:' + s.text + '">' + s.label + '</span>');
+    }
+    // --- Format duration ---
+    function formatDuration(dur) {
+        if (!dur)
+            return '';
+        const str = String(dur).trim();
+        const isoMatch = str.match(/^PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?$/i);
+        if (isoMatch) {
+            const h = parseInt(isoMatch[1] || '0', 10);
+            const m = parseInt(isoMatch[2] || '0', 10);
+            const totalMin = h * 60 + m;
+            if (totalMin > 0)
+                return totalMin + '分钟';
+            const s = parseInt(isoMatch[3] || '0', 10);
+            if (s > 0)
+                return s + '秒';
+            return '';
+        }
+        const timeMatch = str.match(/^(\d+):(\d{2}):(\d{2})$/);
+        if (timeMatch) {
+            const totalMin2 = parseInt(timeMatch[1], 10) * 60 + parseInt(timeMatch[2], 10);
+            return totalMin2 + '分钟';
+        }
+        const shortMatch = str.match(/^(\d+):(\d{2})$/);
+        if (shortMatch) {
+            return parseInt(shortMatch[1], 10) + '分钟';
+        }
+        const num = parseInt(str, 10);
+        if (!isNaN(num) && num > 0) {
+            return Math.round(num / 60) + '分钟';
+        }
+        return str;
+    }
+    function feedItemCardHtml(item, opts) {
+        opts = opts || {};
+        const checked = opts.checked ? ' checked' : '';
+        const showCheckbox = opts.showCheckbox !== false;
+        const thumbSize = opts.thumbSize || 72;
+        const thumb = item.thumbnail
+            ? '<img src="' + escapeHtmlAttr(item.thumbnail) + '" ' +
+                'style="width:' + thumbSize + 'px;height:' + thumbSize + 'px;object-fit:cover;border-radius:8px;flex-shrink:0" ' +
+                'onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'flex\'">' +
+                '<div style="width:' + thumbSize + 'px;height:' + thumbSize + 'px;background:#f0f0f0;border-radius:8px;flex-shrink:0;' +
+                'display:none;align-items:center;justify-content:center;color:#ccc;font-size:20px">&#9654;</div>'
+            : '<div style="width:' + thumbSize + 'px;height:' + thumbSize + 'px;background:#f0f0f0;border-radius:8px;flex-shrink:0;' +
+                'display:flex;align-items:center;justify-content:center;color:#ccc;font-size:20px">&#9654;</div>';
+        const duration = formatDuration(item.duration);
+        const relDate = formatRelativeDate(item.pubDate);
+        const metaParts = [];
+        if (duration)
+            metaParts.push(duration);
+        if (relDate)
+            metaParts.push(relDate);
+        const metaText = metaParts.join(' · ');
+        let html = '<div class="feed-item-card" data-guid="' + escapeHtmlAttr(item.guid) + '" ' +
+            'style="display:flex;align-items:flex-start;gap:12px;padding:14px 16px;border-bottom:1px solid #f0f0f0">';
+        if (showCheckbox) {
+            html += '<input type="checkbox" class="feed-item-check" data-guid="' +
+                escapeHtmlAttr(item.guid) + '"' + checked +
+                ' style="flex-shrink:0;accent-color:#6c5ce7;cursor:pointer;margin-top:' + Math.round(thumbSize / 2 - 7) + 'px">';
+        }
+        html += thumb;
+        html += '<div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:4px">';
+        html += '<a href="' + escapeHtmlAttr(item.url) + '" target="_blank" ' +
+            'style="color:#333;text-decoration:none;font-size:14px;font-weight:500;' +
+            'display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;line-height:1.4" ' +
+            'title="' + escapeHtmlAttr(item.title) + '">' +
+            escapeHtmlAttr(item.title || '无标题') + '</a>';
+        if (item.description) {
+            html += '<div style="color:#999;font-size:12px;line-height:1.4;' +
+                'display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">' +
+                escapeHtmlAttr(item.description) + '</div>';
+        }
+        html += '<div style="display:flex;align-items:center;gap:6px;font-size:11px;color:#bbb;margin-top:2px">';
+        if (metaText) {
+            html += '<span>' + escapeHtmlAttr(metaText) + '</span>';
+        }
+        html += statusBadgeHtml(item.status);
+        if (item.status === 'submitted' && item.noteId) {
+            html += '<a href="https://www.biji.com/note/' + escapeHtmlAttr(item.noteId) + '" target="_blank" ' +
+                'style="font-size:11px;color:#6c5ce7;text-decoration:none;font-weight:500">AI总结</a>';
+            html += '<a href="https://www.biji.com/note/' + escapeHtmlAttr(item.noteId) + '/web" target="_blank" ' +
+                'style="font-size:11px;color:#6c5ce7;text-decoration:none;font-weight:500">原文</a>';
+        }
+        html += '</div>';
+        html += '</div></div>';
+        return html;
+    }
+
+    // subs-tab.ts — Subscription tab logic for popup
+    // Extracted from popup.js lines 690-845
     // --- DOM references ---
-    const searchInput = document.getElementById('searchInput');
-    const filterType = document.getElementById('filterType');
-    const dateFrom = document.getElementById('dateFrom');
-    const dateTo = document.getElementById('dateTo');
-    const filterExport = document.getElementById('filterExport');
-    const filterSort = document.getElementById('filterSort');
-    const selectAllEl = document.getElementById('selectAll');
-    const selCountEl = document.getElementById('selCount');
-    const totalCountEl = document.getElementById('totalCount');
+    const subsList = document.getElementById('subsList');
+    const subsSelectAll = document.getElementById('subsSelectAll');
+    const subsSelCount = document.getElementById('subsSelCount');
+    const btnSubmitSelected = document.getElementById('btnSubmitSelected');
+    const btnRefreshFeeds = document.getElementById('btnRefreshFeeds');
+    const subsRefreshStatus = document.getElementById('subsRefreshStatus');
+    const subsStatusFilter = document.getElementById('subsStatusFilter');
+    const btnOpenSubsPage = document.getElementById('btnOpenSubsPage');
+    // --- State ---
+    let subsItems = [];
+    let subsSelectedGuids = {};
+    // --- Open subscriptions page ---
+    if (btnOpenSubsPage) {
+        btnOpenSubsPage.addEventListener('click', function (e) {
+            e.preventDefault();
+            chrome.tabs.create({ url: chrome.runtime.getURL('subscriptions.html') });
+        });
+    }
+    // --- Load subscription tab data ---
+    function loadSubsTab() {
+        const filter = {};
+        const statusVal = subsStatusFilter ? subsStatusFilter.value : '';
+        if (statusVal)
+            filter.status = statusVal;
+        chrome.runtime.sendMessage({ type: 'getFeedItems', filter }, function (res) {
+            if (chrome.runtime.lastError)
+                return;
+            subsItems = (res && res.items) || [];
+            renderSubsList();
+            // Auto-refresh if no items but feeds exist
+            if (subsItems.length === 0) {
+                chrome.runtime.sendMessage({ type: 'getFeeds' }, function (feedRes) {
+                    if (chrome.runtime.lastError)
+                        return;
+                    const feeds = (feedRes && feedRes.feeds) || [];
+                    if (feeds.length > 0) {
+                        if (subsRefreshStatus)
+                            subsRefreshStatus.textContent = '正在获取内容...';
+                        chrome.runtime.sendMessage({ type: 'refreshAllFeedItems' }, function (refreshRes) {
+                            if (subsRefreshStatus)
+                                subsRefreshStatus.textContent = '';
+                            if (refreshRes && refreshRes.ok && refreshRes.result.newItems > 0) {
+                                loadSubsTab();
+                            }
+                        });
+                    }
+                });
+            }
+        });
+    }
+    function renderSubsList() {
+        if (!subsList)
+            return;
+        const display = subsItems.slice(0, 30);
+        if (display.length === 0) {
+            subsList.innerHTML = '';
+            return;
+        }
+        let html = display.map(function (item) {
+            return feedItemCardHtml(item, {
+                checked: !!subsSelectedGuids[item.guid],
+                showCheckbox: true,
+            });
+        }).join('');
+        if (subsItems.length > 30) {
+            html += '<div style="padding:8px;text-align:center;color:#999;font-size:11px">' +
+                '...还有 ' + (subsItems.length - 30) + ' 条，打开管理页面查看全部</div>';
+        }
+        subsList.innerHTML = html;
+        // Bind checkboxes
+        subsList.querySelectorAll('.feed-item-check').forEach(function (cb) {
+            cb.addEventListener('change', function () {
+                const guid = this.getAttribute('data-guid');
+                if (this.checked) {
+                    subsSelectedGuids[guid] = true;
+                }
+                else {
+                    delete subsSelectedGuids[guid];
+                }
+                updateSubsSelectionUI();
+            });
+        });
+        updateSubsSelectionUI();
+    }
+    function updateSubsSelectionUI() {
+        const count = Object.keys(subsSelectedGuids).length;
+        if (subsSelCount)
+            subsSelCount.textContent = '已选 ' + count + ' 条';
+        if (btnSubmitSelected)
+            btnSubmitSelected.disabled = count === 0;
+        if (subsSelectAll) {
+            const displayed = subsItems.slice(0, 30);
+            subsSelectAll.checked = displayed.length > 0 && count === displayed.length;
+            subsSelectAll.indeterminate = count > 0 && count < displayed.length;
+        }
+    }
+    if (subsSelectAll) {
+        subsSelectAll.addEventListener('change', function () {
+            const checked = this.checked;
+            subsSelectedGuids = {};
+            if (checked) {
+                subsItems.slice(0, 30).forEach(function (item) {
+                    subsSelectedGuids[item.guid] = true;
+                });
+            }
+            subsList.querySelectorAll('.feed-item-check').forEach(function (cb) {
+                cb.checked = checked;
+            });
+            updateSubsSelectionUI();
+        });
+    }
+    if (subsStatusFilter) {
+        subsStatusFilter.addEventListener('change', function () {
+            subsSelectedGuids = {};
+            loadSubsTab();
+        });
+    }
+    if (btnRefreshFeeds) {
+        btnRefreshFeeds.addEventListener('click', function () {
+            btnRefreshFeeds.disabled = true;
+            if (subsRefreshStatus)
+                subsRefreshStatus.textContent = '刷新中...';
+            chrome.runtime.sendMessage({ type: 'refreshAllFeedItems' }, function (res) {
+                btnRefreshFeeds.disabled = false;
+                if (res && res.ok) {
+                    if (subsRefreshStatus)
+                        subsRefreshStatus.textContent = '刷新完成，新增 ' + (res.result.newItems || 0) + ' 条';
+                }
+                else {
+                    if (subsRefreshStatus)
+                        subsRefreshStatus.textContent = '刷新失败: ' + ((res && res.error) || '未知错误');
+                }
+                loadSubsTab();
+                setTimeout(function () { if (subsRefreshStatus)
+                    subsRefreshStatus.textContent = ''; }, 3000);
+            });
+        });
+    }
+    if (btnSubmitSelected) {
+        btnSubmitSelected.addEventListener('click', function () {
+            const guids = Object.keys(subsSelectedGuids);
+            if (guids.length === 0)
+                return;
+            btnSubmitSelected.disabled = true;
+            btnSubmitSelected.textContent = '正在提交中...';
+            // Immediately mark selected items as 'submitting' in local state
+            const guidSet = {};
+            guids.forEach(function (g) { guidSet[g] = true; });
+            subsItems.forEach(function (item) {
+                if (guidSet[item.guid]) {
+                    item.status = 'submitting';
+                }
+            });
+            // Clear selection before re-render so badge change is visible
+            subsSelectedGuids = {};
+            renderSubsList();
+            // Wait for background to finish processing, then reload
+            chrome.runtime.sendMessage({ type: 'submitFeedItems', guids }, function () {
+                btnSubmitSelected.textContent = '提交选中';
+                btnSubmitSelected.disabled = false;
+                loadSubsTab();
+            });
+        });
+    }
+
+    // popup.ts — Export panel + tab switching logic
+    // Converted from popup.js — window.* globals replaced with imports
+    // --- DOM references ---
+    const noteCountEl = document.getElementById('noteCount');
+    const noteCountBar = document.getElementById('noteCountBar');
+    const noteListEl = document.getElementById('noteList');
     const btnExport = document.getElementById('btnExport');
+    const btnScan = document.getElementById('btnScan');
+    const btnClear = document.getElementById('btnClear');
     const progressEl = document.getElementById('progress');
     const pfillEl = document.getElementById('pfill');
     const ptxtEl = document.getElementById('ptxt');
-    const noteTableBody = document.getElementById('noteTableBody');
-    const emptyState = document.getElementById('emptyState');
-    const noteTable = document.getElementById('noteTable');
-    const btnPrev = document.getElementById('btnPrev');
-    const btnNext = document.getElementById('btnNext');
-    const pageInfo = document.getElementById('pageInfo');
-    const methodZip = document.getElementById('methodZip');
-    const methodVault = document.getElementById('methodVault');
-    const fileFmtChecks = document.querySelectorAll('.fmt-check-sm');
-    // --- State ---
+    const discoveryToggle = document.getElementById('discoveryToggle');
+    const btnSettings = document.getElementById('btnSettings');
+    const selectAllEl = document.getElementById('selectAll');
+    // Export method toggle
+    const fmtZipBtn = document.getElementById('fmtZipBtn');
+    const fmtVaultBtn = document.getElementById('fmtVaultBtn');
+    // File format toggle (multi-select checkboxes)
+    const fileFmtChecks = document.querySelectorAll('.file-fmt-check');
+    // Vault inline
+    const vaultInline = document.getElementById('vaultInline');
+    const vaultDot = document.getElementById('vaultDot');
+    const vaultLabel = document.getElementById('vaultLabel');
+    const openSettings = document.getElementById('openSettings');
+    // Incremental export
+    const newBadge = document.getElementById('newBadge');
+    const btnExportNew = document.getElementById('btnExportNew');
+    const btnClearExport = document.getElementById('btnClearExport');
+    const btnManageAll = document.getElementById('btnManageAll');
+    // Advanced
+    const advancedToggle = document.getElementById('advancedToggle');
+    const advancedContent = document.getElementById('advancedContent');
+    // Fetch
+    const btnFetchAll = document.getElementById('btnFetchAll');
+    const btnCancelFetch = document.getElementById('btnCancelFetch');
+    const fetchStatusEl = document.getElementById('fetchStatus');
+    // --- Tracked state ---
     let allNotes = [];
-    let filteredNotes = [];
     let selectedIds = {};
     let currentSettings = {};
+    let activeExportFormat = 'zip';
     const activeFileFormats = { md: true, pdf: false, docx: false };
-    let activeMethod = 'zip';
-    let currentPage = 1;
-    const pageSize = 50;
-    // --- Filter Engine ---
-    const FilterEngine = {
-        searchText: '',
-        noteType: 'all',
-        dateFrom: null,
-        dateTo: null,
-        exportStatus: 'all',
-        sortBy: 'date_desc',
-        apply(notes) {
-            let result = notes.slice();
-            // Text search
-            if (this.searchText) {
-                const q = this.searchText.toLowerCase();
-                result = result.filter(function (n) {
-                    const title = (n.title || '').toLowerCase();
-                    const tags = (n.tags || [])
-                        .map(function (t) { return typeof t === 'string' ? t : t.name || t.label || ''; })
-                        .join(' ')
-                        .toLowerCase();
-                    return title.indexOf(q) !== -1 || tags.indexOf(q) !== -1;
-                });
-            }
-            // Type filter
-            if (this.noteType !== 'all') {
-                const nt = this.noteType;
-                result = result.filter(function (n) { return (n.type || 'text') === nt; });
-            }
-            // Date filter
-            if (this.dateFrom) {
-                const fromTs = new Date(this.dateFrom).getTime();
-                result = result.filter(function (n) {
-                    const ts = n.createdAt
-                        ? new Date(typeof n.createdAt === 'number' ? n.createdAt * 1000 : n.createdAt).getTime()
-                        : 0;
-                    return ts >= fromTs;
-                });
-            }
-            if (this.dateTo) {
-                const toTs = new Date(this.dateTo).getTime() + 86400000;
-                result = result.filter(function (n) {
-                    const ts = n.createdAt
-                        ? new Date(typeof n.createdAt === 'number' ? n.createdAt * 1000 : n.createdAt).getTime()
-                        : 0;
-                    return ts < toTs;
-                });
-            }
-            // Export status
-            if (this.exportStatus === 'exported') {
-                result = result.filter(function (n) { return ExportTracker.isExported(n.id); });
-            }
-            else if (this.exportStatus === 'unexported') {
-                result = result.filter(function (n) { return !ExportTracker.isExported(n.id); });
-            }
-            // Sort
-            if (this.sortBy === 'date_desc') {
-                result.sort(function (a, b) {
-                    const tA = a.createdAt ? new Date(typeof a.createdAt === 'number' ? a.createdAt * 1000 : a.createdAt).getTime() : 0;
-                    const tB = b.createdAt ? new Date(typeof b.createdAt === 'number' ? b.createdAt * 1000 : b.createdAt).getTime() : 0;
-                    return tB - tA;
-                });
-            }
-            else if (this.sortBy === 'date_asc') {
-                result.sort(function (a, b) {
-                    const tA = a.createdAt ? new Date(typeof a.createdAt === 'number' ? a.createdAt * 1000 : a.createdAt).getTime() : 0;
-                    const tB = b.createdAt ? new Date(typeof b.createdAt === 'number' ? b.createdAt * 1000 : b.createdAt).getTime() : 0;
-                    return tA - tB;
-                });
-            }
-            else if (this.sortBy === 'title') {
-                result.sort(function (a, b) { return (a.title || '').localeCompare(b.title || ''); });
-            }
-            else if (this.sortBy === 'type') {
-                result.sort(function (a, b) { return (a.type || 'text').localeCompare(b.type || 'text'); });
-            }
-            return result;
-        },
-    };
-    // --- Render ---
-    function renderPage() {
-        const totalPages = Math.max(1, Math.ceil(filteredNotes.length / pageSize));
-        if (currentPage > totalPages)
-            currentPage = totalPages;
-        if (currentPage < 1)
-            currentPage = 1;
-        const start = (currentPage - 1) * pageSize;
-        const pageNotes = filteredNotes.slice(start, start + pageSize);
-        totalCountEl.textContent = String(filteredNotes.length);
-        if (filteredNotes.length === 0) {
-            noteTable.style.display = 'none';
-            emptyState.style.display = '';
-        }
-        else {
-            noteTable.style.display = '';
-            emptyState.style.display = 'none';
-        }
-        const html = pageNotes
-            .map(function (n) {
-            const t = n.title || 'Note ' + n.id;
-            const d = MD.formatDate(n.createdAt);
-            const ds = d ? d.substring(0, 10) : '';
-            const checked = selectedIds[n.id] ? ' checked' : '';
-            const type = n.type || 'text';
-            const typeCls = type === 'voice' ? 'voice' : type === 'link' ? 'link' : type === 'text' ? 'text' : 'other';
-            const typeLabel = type === 'voice' ? '语音' : type === 'link' ? '链接' : type === 'text' ? '文字' : type;
-            const exported = ExportTracker.isExported(n.id);
-            const statusHtml = exported
-                ? '<span class="export-status exported">\u2713</span>'
-                : '<span class="export-status new">\u25CF</span>';
-            const tags = MD.formatTags(n.tags);
-            const tagsHtml = tags.length > 0
-                ? '<div class="tag-list">' +
-                    tags.slice(0, 3).map(function (tag) { return '<span class="tag-chip">' + escapeHtml(tag) + '</span>'; }).join('') +
-                    (tags.length > 3 ? '<span class="tag-chip">+' + (tags.length - 3) + '</span>' : '') +
-                    '</div>'
-                : '';
-            return ('<tr>' +
-                '<td><input type="checkbox" data-id="' + escapeHtml(String(n.id)) + '"' + checked + '></td>' +
-                '<td>' + statusHtml + '</td>' +
-                '<td class="note-title-cell">' +
-                '<a href="https://www.biji.com/note/' + escapeHtml(String(n.id)) + '" target="_blank">' +
-                escapeHtml(t) + '</a></td>' +
-                '<td><span class="type-badge ' + typeCls + '">' + typeLabel + '</span></td>' +
-                '<td style="font-size:12px;color:#888">' + ds + '</td>' +
-                '<td>' + tagsHtml + '</td>' +
-                '</tr>');
-        })
-            .join('');
-        noteTableBody.innerHTML = html;
-        // Bind checkboxes
-        noteTableBody.querySelectorAll('input[type="checkbox"]').forEach(function (cb) {
-            cb.addEventListener('change', function () {
-                const id = this.getAttribute('data-id');
-                if (this.checked) {
-                    selectedIds[id] = true;
-                }
-                else {
-                    delete selectedIds[id];
-                }
-                updateSelectionUI();
-            });
+    // --- Settings gear button ---
+    if (btnSettings) {
+        btnSettings.addEventListener('click', function () {
+            chrome.runtime.openOptionsPage();
         });
-        // Pagination
-        btnPrev.disabled = currentPage <= 1;
-        btnNext.disabled = currentPage >= totalPages;
-        pageInfo.textContent = '\u7B2C ' + currentPage + '/' + totalPages + ' \u9875';
-        updateSelectionUI();
+    }
+    // --- Open settings link ---
+    if (openSettings) {
+        openSettings.addEventListener('click', function (e) {
+            e.preventDefault();
+            chrome.runtime.openOptionsPage();
+        });
+    }
+    // --- Load settings (local wrapper) ---
+    function loadSettingsLocal(cb) {
+        loadSettingsCb(function (settings) {
+            currentSettings = settings;
+            if (cb)
+                cb(settings);
+        });
+    }
+    // --- Selection helpers ---
+    function getSelectedCount() {
+        return Object.keys(selectedIds).length;
     }
     function updateSelectionUI() {
-        const count = Object.keys(selectedIds).length;
-        selCountEl.textContent = String(count);
-        if (filteredNotes.length > 0) {
-            const allSelected = filteredNotes.every(function (n) { return selectedIds[n.id]; });
-            const someSelected = filteredNotes.some(function (n) { return selectedIds[n.id]; });
-            selectAllEl.checked = allSelected;
-            selectAllEl.indeterminate = someSelected && !allSelected;
+        const count = getSelectedCount();
+        updateExportButtonText();
+        if (allNotes.length > 0) {
+            selectAllEl.checked = count === allNotes.length;
+            selectAllEl.indeterminate = count > 0 && count < allNotes.length;
         }
-        else {
-            selectAllEl.checked = false;
-            selectAllEl.indeterminate = false;
-        }
+    }
+    function updateExportButtonText() {
+        const count = getSelectedCount();
+        const methodLabel = activeExportFormat === 'vault' ? 'Vault' : 'ZIP';
         const formats = ExportEngine.getActiveFormats(activeFileFormats);
         const fmtLabel = formats.length > 0
             ? formats.map(function (f) { return f.toUpperCase(); }).join('+')
             : 'MD';
+        const suffix = fmtLabel + ' / ' + methodLabel;
         if (count > 0) {
-            btnExport.textContent = '\u5BFC\u51FA\u9009\u4E2D ' + count + ' \u6761 (' + fmtLabel + ')';
+            btnExport.textContent = '\u5BFC\u51FA ' + count + ' \u6761\u7B14\u8BB0 (' + suffix + ')';
         }
         else {
-            btnExport.textContent = '\u5BFC\u51FA\u7B5B\u9009\u7ED3\u679C (' + fmtLabel + ')';
+            btnExport.textContent = '\u5BFC\u51FA\u5168\u90E8\u7B14\u8BB0 (' + suffix + ')';
         }
     }
-    function applyFilters() {
-        FilterEngine.searchText = searchInput.value.trim();
-        FilterEngine.noteType = filterType.value;
-        FilterEngine.dateFrom = dateFrom.value || null;
-        FilterEngine.dateTo = dateTo.value || null;
-        FilterEngine.exportStatus = filterExport.value;
-        FilterEngine.sortBy = filterSort.value;
-        filteredNotes = FilterEngine.apply(allNotes);
-        currentPage = 1;
-        renderPage();
+    function getTargetNoteIds() {
+        const selected = Object.keys(selectedIds);
+        if (selected.length > 0)
+            return selected;
+        return allNotes.map(function (n) { return n.id; });
     }
-    // --- Event: Filters ---
-    let filterDebounce = null;
-    searchInput.addEventListener('input', function () {
-        if (filterDebounce)
-            clearTimeout(filterDebounce);
-        filterDebounce = setTimeout(applyFilters, 200);
-    });
-    filterType.addEventListener('change', applyFilters);
-    dateFrom.addEventListener('change', applyFilters);
-    dateTo.addEventListener('change', applyFilters);
-    filterExport.addEventListener('change', applyFilters);
-    filterSort.addEventListener('change', applyFilters);
-    // --- Event: Select all ---
-    selectAllEl.addEventListener('change', function () {
-        const checked = this.checked;
-        if (checked) {
-            filteredNotes.forEach(function (n) { selectedIds[n.id] = true; });
-        }
-        else {
-            filteredNotes.forEach(function (n) { delete selectedIds[n.id]; });
-        }
-        noteTableBody.querySelectorAll('input[type="checkbox"]').forEach(function (cb) {
-            cb.checked = checked;
-        });
-        updateSelectionUI();
-    });
-    // --- Event: Pagination ---
-    btnPrev.addEventListener('click', function () {
-        if (currentPage > 1) {
-            currentPage--;
-            renderPage();
-        }
-    });
-    btnNext.addEventListener('click', function () {
-        const totalPages = Math.ceil(filteredNotes.length / pageSize);
-        if (currentPage < totalPages) {
-            currentPage++;
-            renderPage();
-        }
-    });
-    // --- Event: File format (multi-select) ---
-    fileFmtChecks.forEach(function (label) {
-        const cb = label.querySelector('input[type="checkbox"]');
-        cb.addEventListener('change', function () {
-            const fmt = this.getAttribute('data-format');
-            activeFileFormats[fmt] = this.checked;
-            const formats = ExportEngine.getActiveFormats(activeFileFormats);
-            if (formats.length === 0) {
-                activeFileFormats.md = true;
-                const mdCb = document.querySelector('.fmt-check-sm input[data-format="md"]');
-                if (mdCb)
-                    mdCb.checked = true;
-            }
-            fileFmtChecks.forEach(function (lbl) {
-                const input = lbl.querySelector('input[type="checkbox"]');
-                lbl.classList.toggle('active', input.checked);
-            });
-            const hasNonMd = activeFileFormats.pdf || activeFileFormats.docx;
-            if (hasNonMd) {
-                if (activeMethod === 'vault') {
-                    activeMethod = 'zip';
-                    methodZip.classList.add('active');
-                    methodVault.classList.remove('active');
+    function loadFullNotesByIds(ids) {
+        if (!ids.length)
+            return Promise.resolve([]);
+        return new Promise(resolve => {
+            chrome.runtime.sendMessage({ type: 'getNotesByIds', ids }, function (res) {
+                if (chrome.runtime.lastError) {
+                    console.warn('[Biji Ext] getNotesByIds failed:', chrome.runtime.lastError.message);
+                    resolve([]);
+                    return;
                 }
-                methodVault.disabled = true;
+                const notes = res && Array.isArray(res.notes) ? res.notes : [];
+                resolve(notes);
+            });
+        });
+    }
+    function resolveNotesToExport() {
+        return loadFullNotesByIds(getTargetNoteIds());
+    }
+    function toCreatedAtMs(value) {
+        if (!value)
+            return 0;
+        if (typeof value === 'number')
+            return value > 1e12 ? value : value * 1000;
+        const ts = new Date(value).getTime();
+        return Number.isFinite(ts) ? ts : 0;
+    }
+    function sortNotesMetaByDate(arr) {
+        arr.sort(function (a, b) {
+            return toCreatedAtMs(b.createdAt) - toCreatedAtMs(a.createdAt);
+        });
+    }
+    // --- File format toggle (MD / PDF / DOCX) — multi-select ---
+    function initFileFormatToggle() {
+        fileFmtChecks.forEach(function (label) {
+            const cb = label.querySelector('input[type="checkbox"]');
+            cb.addEventListener('change', function () {
+                const fmt = this.getAttribute('data-format');
+                activeFileFormats[fmt] = this.checked;
+                // Ensure at least one format is selected
+                const formats = ExportEngine.getActiveFormats(activeFileFormats);
+                if (formats.length === 0) {
+                    activeFileFormats.md = true;
+                    const mdCb = document.querySelector('.file-fmt-check input[data-format="md"]');
+                    if (mdCb)
+                        mdCb.checked = true;
+                }
+                // Update active class on labels
+                fileFmtChecks.forEach(function (lbl) {
+                    const input = lbl.querySelector('input[type="checkbox"]');
+                    lbl.classList.toggle('active', input.checked);
+                });
+                // Vault only supports MD — disable if non-MD formats selected
+                const hasNonMd = activeFileFormats.pdf || activeFileFormats.docx;
+                if (hasNonMd) {
+                    if (activeExportFormat === 'vault') {
+                        activeExportFormat = 'zip';
+                    }
+                    fmtVaultBtn.disabled = true;
+                    fmtVaultBtn.style.opacity = '0.4';
+                }
+                else {
+                    fmtVaultBtn.disabled = false;
+                    fmtVaultBtn.style.opacity = '';
+                }
+                updateFormatToggleUI();
+                updateExportButtonText();
+            });
+        });
+    }
+    // --- Export method toggle (ZIP / Vault) ---
+    function initFormatToggle() {
+        fmtZipBtn.addEventListener('click', function () {
+            activeExportFormat = 'zip';
+            updateFormatToggleUI();
+        });
+        fmtVaultBtn.addEventListener('click', function () {
+            if (activeFileFormats.pdf || activeFileFormats.docx)
+                return;
+            activeExportFormat = 'vault';
+            updateFormatToggleUI();
+        });
+    }
+    function updateFormatToggleUI() {
+        fmtZipBtn.classList.toggle('active', activeExportFormat === 'zip');
+        fmtVaultBtn.classList.toggle('active', activeExportFormat === 'vault');
+        if (activeExportFormat === 'vault') {
+            vaultInline.classList.add('visible');
+            refreshVaultStatus();
+        }
+        else {
+            vaultInline.classList.remove('visible');
+        }
+        updateExportButtonText();
+    }
+    // --- Vault status ---
+    function refreshVaultStatus() {
+        if (!VaultWriterModule.isSupported()) {
+            vaultDot.style.background = '#999';
+            vaultLabel.textContent = 'Vault: \u6D4F\u89C8\u5668\u4E0D\u652F\u6301';
+            return;
+        }
+        VaultWriterModule.restoreHandle()
+            .then(function (handle) {
+            if (handle) {
+                vaultDot.style.background = '#28a745';
+                vaultLabel.textContent = 'Vault: ' + VaultWriterModule.getDirectoryName();
+            }
+            else if (VaultWriterModule.needsPermission()) {
+                vaultDot.style.background = '#ffc107';
+                vaultLabel.textContent = 'Vault: \u9700\u8981\u6388\u6743 (' + VaultWriterModule.getDirectoryName() + ')';
             }
             else {
-                methodVault.disabled = false;
+                vaultDot.style.background = '#dc3545';
+                vaultLabel.textContent = 'Vault: \u672A\u914D\u7F6E\uFF0C\u8BF7\u6253\u5F00\u8BBE\u7F6E';
+            }
+        })
+            .catch(function () {
+            vaultDot.style.background = '#dc3545';
+            vaultLabel.textContent = 'Vault: \u672A\u914D\u7F6E';
+        });
+    }
+    // --- Advanced toggle ---
+    if (advancedToggle) {
+        advancedToggle.addEventListener('click', function () {
+            advancedToggle.classList.toggle('open');
+            advancedContent.classList.toggle('visible');
+        });
+    }
+    // --- Load data and refresh UI ---
+    function refresh() {
+        chrome.runtime.sendMessage({ type: 'getNotesMeta' }, function (res) {
+            const arrRaw = res && res.notes
+                ? res.notes
+                : [];
+            const arr = (Array.isArray(arrRaw) ? arrRaw : Object.values(arrRaw))
+                .map(function (n) {
+                return {
+                    id: String(n.id || ''),
+                    title: n.title || '',
+                    createdAt: n.createdAt || '',
+                    updatedAt: n.updatedAt || '',
+                    type: n.type || 'text',
+                    noteType: n.noteType || null,
+                };
+            })
+                .filter(function (n) { return !!n.id; });
+            sortNotesMetaByDate(arr);
+            allNotes = arr;
+            // Keep selection in sync when notes are deleted
+            const alive = {};
+            arr.forEach(function (n) { alive[n.id] = true; });
+            Object.keys(selectedIds).forEach(function (id) {
+                if (!alive[id])
+                    delete selectedIds[id];
+            });
+            noteCountEl.textContent = String(arr.length);
+            // Incremental export badge
+            const newCount = ExportTracker.getNewCount(arr);
+            if (newBadge) {
+                if (newCount > 0 && arr.length > 0) {
+                    newBadge.textContent = '\u65B0\u589E ' + newCount + ' \u6761';
+                    newBadge.style.display = 'inline';
+                }
+                else {
+                    newBadge.style.display = 'none';
+                }
+            }
+            if (btnExportNew) {
+                btnExportNew.style.display = newCount > 0 ? '' : 'none';
+            }
+            if (arr.length === 0) {
+                noteCountBar.style.display = 'none';
+                if (btnManageAll)
+                    btnManageAll.style.display = 'none';
+                noteListEl.innerHTML =
+                    '<div style="padding:14px;text-align:center;color:#999">' +
+                        '\u6682\u65E0\u6355\u83B7\u7684\u7B14\u8BB0<br>\u8BF7\u5148\u6253\u5F00 biji.com \u6D4F\u89C8\u7B14\u8BB0</div>';
+            }
+            else {
+                noteCountBar.style.display = 'flex';
+                if (btnManageAll)
+                    btnManageAll.style.display = '';
+                let html = arr
+                    .slice(0, 50)
+                    .map(function (n) {
+                    const t = n.title || 'Note ' + n.id;
+                    const d = MD.formatDate(n.createdAt);
+                    const ds = d ? d.substring(0, 10) : '';
+                    const checked = selectedIds[n.id] ? ' checked' : '';
+                    const dot = ExportTracker.isExported(n.id) ? '' : '<span class="new-dot">\u25CF</span>';
+                    return ('<div class="note-item">' +
+                        '<input type="checkbox" data-id="' + escapeHtml(String(n.id)) + '"' + checked + '>' +
+                        dot +
+                        '<span class="title">' + escapeHtml(t) + '</span><span class="date">' + ds + '</span></div>');
+                })
+                    .join('');
+                if (arr.length > 50) {
+                    html += '<div style="padding:8px;text-align:center;color:#999;font-size:11px">' +
+                        '...\u8FD8\u6709 ' + (arr.length - 50) + ' \u6761</div>';
+                }
+                noteListEl.innerHTML = html;
+                noteListEl.querySelectorAll('input[type="checkbox"]').forEach(function (cb) {
+                    cb.addEventListener('change', function () {
+                        const id = this.getAttribute('data-id');
+                        if (this.checked) {
+                            selectedIds[id] = true;
+                        }
+                        else {
+                            delete selectedIds[id];
+                        }
+                        updateSelectionUI();
+                    });
+                });
             }
             updateSelectionUI();
         });
-    });
-    // --- Event: Export method ---
-    methodZip.addEventListener('click', function () {
-        activeMethod = 'zip';
-        methodZip.classList.add('active');
-        methodVault.classList.remove('active');
-    });
-    methodVault.addEventListener('click', function () {
-        if (activeFileFormats.pdf || activeFileFormats.docx)
-            return;
-        activeMethod = 'vault';
-        methodVault.classList.add('active');
-        methodZip.classList.remove('active');
-    });
-    // --- Export ---
-    btnExport.addEventListener('click', function () {
-        if (activeMethod === 'vault') {
-            doVaultExport();
-        }
-        else {
-            doZipExport();
-        }
-    });
-    function getNotesToExport() {
-        const count = Object.keys(selectedIds).length;
-        if (count === 0)
-            return filteredNotes;
-        return filteredNotes.filter(function (n) { return selectedIds[n.id]; });
     }
-    function doZipExport() {
-        loadSettingsCb(function (settings) {
-            const notes = getNotesToExport();
-            if (notes.length === 0) {
-                alert('\u6682\u65E0\u7B14\u8BB0\u53EF\u5BFC\u51FA\u3002');
+    // --- Select all / deselect all ---
+    if (selectAllEl) {
+        selectAllEl.addEventListener('change', function () {
+            const checked = this.checked;
+            selectedIds = {};
+            if (checked) {
+                allNotes.forEach(function (n) { selectedIds[n.id] = true; });
+            }
+            noteListEl.querySelectorAll('input[type="checkbox"]').forEach(function (cb) {
+                cb.checked = checked;
+            });
+            updateSelectionUI();
+        });
+    }
+    // --- Export new only ---
+    if (btnExportNew) {
+        btnExportNew.addEventListener('click', function () {
+            const newNotes = ExportTracker.getNewNotes(allNotes);
+            if (newNotes.length === 0) {
+                alert('\u6CA1\u6709\u65B0\u589E\u7B14\u8BB0\u3002');
                 return;
             }
-            let formats = ExportEngine.getActiveFormats(activeFileFormats);
-            if (formats.length === 0)
-                formats = ['md'];
-            progressEl.classList.add('active');
-            btnExport.disabled = true;
-            const needTranscripts = settings.transcriptMode !== 'none' &&
-                notes.some(function (n) { return !n.rawTranscript; });
-            let chain = Promise.resolve();
-            if (needTranscripts) {
-                ptxtEl.textContent = '\u6B63\u5728\u83B7\u53D6\u6587\u5B57\u8BB0\u5F55...';
-                chain = ExportEngine.fetchMissingTranscripts(notes, function (done, total) {
-                    ptxtEl.textContent = '\u83B7\u53D6\u6587\u5B57\u8BB0\u5F55 ' + done + '/' + total + '...';
-                }, settings);
+            selectedIds = {};
+            newNotes.forEach(function (n) { selectedIds[n.id] = true; });
+            noteListEl.querySelectorAll('input[type="checkbox"]').forEach(function (cb) {
+                cb.checked = !!selectedIds[cb.getAttribute('data-id')];
+            });
+            updateSelectionUI();
+            if (activeExportFormat === 'vault') {
+                exportToVault();
             }
-            chain
-                .then(function () {
-                const hasNonMd = formats.indexOf('pdf') !== -1 || formats.indexOf('docx') !== -1;
-                if (hasNonMd && notes.length > 20) {
-                    ptxtEl.textContent = 'PDF/DOCX \u751F\u6210\u8F83\u6162\uFF0C\u8BF7\u8010\u5FC3\u7B49\u5F85...';
+            else {
+                exportToZip();
+            }
+        });
+    }
+    // --- Clear export record ---
+    if (btnClearExport) {
+        btnClearExport.addEventListener('click', function () {
+            if (!confirm('\u786E\u5B9A\u8981\u6E05\u9664\u5BFC\u51FA\u8BB0\u5F55\u5417\uFF1F\u6240\u6709\u7B14\u8BB0\u5C06\u663E\u793A\u4E3A\u201C\u672A\u5BFC\u51FA\u201D\u3002'))
+                return;
+            ExportTracker.clear(function () { refresh(); });
+        });
+    }
+    // --- Manage all notes ---
+    if (btnManageAll) {
+        btnManageAll.addEventListener('click', function () {
+            chrome.tabs.create({ url: chrome.runtime.getURL('notes.html') });
+        });
+    }
+    // --- Unified export button ---
+    btnExport.addEventListener('click', function () {
+        if (activeExportFormat === 'vault') {
+            exportToVault();
+        }
+        else {
+            exportToZip();
+        }
+    });
+    // --- Export to ZIP (multi-format) ---
+    function exportToZip() {
+        loadSettingsLocal(function (settings) {
+            resolveNotesToExport().then(function (notes) {
+                if (notes.length === 0) {
+                    alert('\u6682\u65E0\u7B14\u8BB0\u53EF\u5BFC\u51FA\u3002\u8BF7\u5148\u6253\u5F00 biji.com \u6D4F\u89C8\u7B14\u8BB0\u3002');
+                    return;
                 }
-                return ExportEngine.zipExport(notes, settings, formats, function (done, total) {
-                    const pct = Math.round((done / total) * 100);
-                    pfillEl.style.width = pct + '%';
-                    ptxtEl.textContent = done + ' / ' + total + ' \u7B14\u8BB0\u5DF2\u5904\u7406';
+                let formats = ExportEngine.getActiveFormats(activeFileFormats);
+                if (formats.length === 0)
+                    formats = ['md'];
+                progressEl.classList.add('active');
+                btnExport.disabled = true;
+                const needTranscripts = settings.transcriptMode !== 'none' &&
+                    notes.some(function (n) { return !n.rawTranscript; });
+                let chain = Promise.resolve();
+                const needContent = notes.some(function (n) { return !n.content || n.content.trim().length === 0; });
+                if (needContent) {
+                    ptxtEl.textContent = '\u6B63\u5728\u83B7\u53D6\u7B14\u8BB0\u5185\u5BB9...';
+                    chain = chain.then(function () {
+                        return ExportEngine.fetchMissingContent(notes, function (done, total) {
+                            ptxtEl.textContent = '\u6B63\u5728\u83B7\u53D6\u5185\u5BB9 ' + done + '/' + total + '...';
+                        }, settings);
+                    });
+                }
+                if (needTranscripts) {
+                    chain = chain.then(function () {
+                        ptxtEl.textContent = '\u6B63\u5728\u83B7\u53D6\u539F\u59CB\u6587\u5B57\u8BB0\u5F55...';
+                        return ExportEngine.fetchMissingTranscripts(notes, function (done, total) {
+                            ptxtEl.textContent = '\u6B63\u5728\u83B7\u53D6\u6587\u5B57\u8BB0\u5F55 ' + done + '/' + total + '...';
+                        }, settings);
+                    });
+                }
+                chain
+                    .then(function () {
+                    const hasNonMd = formats.indexOf('pdf') !== -1 || formats.indexOf('docx') !== -1;
+                    if (hasNonMd && notes.length > 20) {
+                        ptxtEl.textContent = 'PDF/DOCX \u751F\u6210\u8F83\u6162\uFF0C\u8BF7\u8010\u5FC3\u7B49\u5F85...';
+                    }
+                    return ExportEngine.zipExport(notes, settings, formats, function (done, total) {
+                        const pct = Math.round((done / total) * 100);
+                        pfillEl.style.width = pct + '%';
+                        ptxtEl.textContent = done + ' / ' + total + ' \u7B14\u8BB0\u5DF2\u5904\u7406';
+                    });
+                })
+                    .then(function () {
+                    ptxtEl.textContent = '\u5BFC\u51FA\u5B8C\u6210\uFF01\u8BF7\u67E5\u770B\u4E0B\u8F7D\u6587\u4EF6\u5939\u3002';
+                    btnExport.disabled = false;
+                    setTimeout(function () {
+                        progressEl.classList.remove('active');
+                        refresh();
+                    }, 3000);
+                })
+                    .catch(function (err) {
+                    ptxtEl.textContent = '\u5BFC\u51FA\u5931\u8D25: ' + err.message;
+                    btnExport.disabled = false;
+                    setTimeout(function () { progressEl.classList.remove('active'); }, 4000);
                 });
-            })
-                .then(function () {
-                ptxtEl.textContent = '\u5BFC\u51FA\u5B8C\u6210\uFF01\u8BF7\u67E5\u770B\u4E0B\u8F7D\u6587\u4EF6\u5939\u3002';
-                btnExport.disabled = false;
-                setTimeout(function () { progressEl.classList.remove('active'); applyFilters(); }, 3000);
             });
         });
     }
-    function doVaultExport() {
+    // --- Export to Vault (MD only) ---
+    function exportToVault() {
         if (!VaultWriterModule.isReady()) {
             alert('Vault \u672A\u5C31\u7EEA\u3002\u8BF7\u5148\u5728\u8BBE\u7F6E\u9875\u9762\u9009\u62E9 Vault \u6587\u4EF6\u5939\u3002');
             return;
         }
-        loadSettingsCb(function (settings) {
-            const notes = getNotesToExport();
-            if (notes.length === 0) {
-                alert('\u6682\u65E0\u7B14\u8BB0\u53EF\u5BFC\u51FA\u3002');
-                return;
-            }
-            progressEl.classList.add('active');
-            btnExport.disabled = true;
-            const needTranscripts = settings.transcriptMode !== 'none' &&
-                notes.some(function (n) { return !n.rawTranscript; });
-            let chain = Promise.resolve();
-            if (needTranscripts) {
-                ptxtEl.textContent = '\u6B63\u5728\u83B7\u53D6\u6587\u5B57\u8BB0\u5F55...';
-                chain = ExportEngine.fetchMissingTranscripts(notes, function (done, total) {
-                    ptxtEl.textContent = '\u83B7\u53D6\u6587\u5B57\u8BB0\u5F55 ' + done + '/' + total + '...';
-                }, settings);
-            }
-            chain
-                .then(function () {
-                return ExportEngine.vaultExport(notes, settings, function (done, total, written, errorCount) {
-                    const pct = Math.round((done / total) * 100);
-                    pfillEl.style.width = pct + '%';
-                    ptxtEl.textContent = done + ' / ' + total + ' \u5DF2\u5904\u7406 (' + (written || 0) + ' \u5199\u5165, ' + (errorCount || 0) + ' \u9519\u8BEF)';
-                });
-            })
-                .then(function (result) {
-                ExportTracker.markExported(notes.map(function (n) { return n.id; }));
-                ptxtEl.textContent = '\u5BFC\u51FA\u5B8C\u6210\uFF01' + result.written + ' \u7BC7\u7B14\u8BB0\u5DF2\u5199\u5165 Vault\u3002';
-                if (result.errors.length > 0) {
-                    ptxtEl.textContent += ' (' + result.errors.length + ' \u4E2A\u9519\u8BEF)';
+        loadSettingsLocal(function (settings) {
+            resolveNotesToExport().then(function (notes) {
+                if (notes.length === 0) {
+                    alert('\u6682\u65E0\u7B14\u8BB0\u53EF\u5BFC\u51FA\u3002\u8BF7\u5148\u6253\u5F00 biji.com \u6D4F\u89C8\u7B14\u8BB0\u3002');
+                    return;
                 }
-                btnExport.disabled = false;
-                setTimeout(function () { progressEl.classList.remove('active'); applyFilters(); }, 4000);
-            })
-                .catch(function (err) {
-                ptxtEl.textContent = '\u5BFC\u51FA\u5931\u8D25: ' + err.message;
-                btnExport.disabled = false;
-                setTimeout(function () { progressEl.classList.remove('active'); }, 4000);
+                progressEl.classList.add('active');
+                btnExport.disabled = true;
+                btnExport.textContent = '\u5BFC\u51FA\u4E2D...';
+                const needTranscripts = settings.transcriptMode !== 'none' &&
+                    notes.some(function (n) { return !n.rawTranscript; });
+                let chain = Promise.resolve();
+                const needContent = notes.some(function (n) { return !n.content || n.content.trim().length === 0; });
+                if (needContent) {
+                    ptxtEl.textContent = '\u6B63\u5728\u83B7\u53D6\u7B14\u8BB0\u5185\u5BB9...';
+                    chain = chain.then(function () {
+                        return ExportEngine.fetchMissingContent(notes, function (done, total) {
+                            ptxtEl.textContent = '\u6B63\u5728\u83B7\u53D6\u5185\u5BB9 ' + done + '/' + total + '...';
+                        }, settings);
+                    });
+                }
+                if (needTranscripts) {
+                    chain = chain.then(function () {
+                        ptxtEl.textContent = '\u6B63\u5728\u83B7\u53D6\u539F\u59CB\u6587\u5B57\u8BB0\u5F55...';
+                        return ExportEngine.fetchMissingTranscripts(notes, function (done, total) {
+                            ptxtEl.textContent = '\u6B63\u5728\u83B7\u53D6\u6587\u5B57\u8BB0\u5F55 ' + done + '/' + total + '...';
+                        }, settings);
+                    });
+                }
+                chain
+                    .then(function () {
+                    return ExportEngine.vaultExport(notes, settings, function (done, total, written, errorCount) {
+                        const pct = Math.round((done / total) * 100);
+                        pfillEl.style.width = pct + '%';
+                        ptxtEl.textContent = done + ' / ' + total + ' \u5DF2\u5904\u7406 (' + (written || 0) + ' \u5199\u5165, ' + (errorCount || 0) + ' \u9519\u8BEF)';
+                    });
+                })
+                    .then(function (result) {
+                    ExportTracker.markExported(notes.map(function (n) { return n.id; }));
+                    ptxtEl.textContent = '\u5BFC\u51FA\u5B8C\u6210\uFF01' + result.written + ' \u7BC7\u7B14\u8BB0\u5DF2\u5199\u5165 Vault\u3002';
+                    if (result.errors.length > 0) {
+                        ptxtEl.textContent += ' (' + result.errors.length + ' \u4E2A\u9519\u8BEF)';
+                        console.warn('[Biji Ext] Vault write errors:', result.errors);
+                    }
+                    btnExport.disabled = false;
+                    updateExportButtonText();
+                    setTimeout(function () {
+                        progressEl.classList.remove('active');
+                        refresh();
+                    }, 4000);
+                })
+                    .catch(function (err) {
+                    ptxtEl.textContent = '\u5BFC\u51FA\u5931\u8D25: ' + err.message;
+                    btnExport.disabled = false;
+                    updateExportButtonText();
+                    setTimeout(function () { progressEl.classList.remove('active'); }, 4000);
+                });
             });
         });
     }
-    // --- Load data ---
-    function loadNotes() {
-        chrome.runtime.sendMessage({ type: 'getNotes' }, function (res) {
-            const notes = res && res.notes ? res.notes : {};
-            allNotes = Object.values(notes);
-            sortNotesByDate(allNotes);
-            applyFilters();
+    // --- Scan Vue Store ---
+    btnScan.addEventListener('click', function () {
+        chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
+            if (!tabs[0])
+                return;
+            chrome.tabs.sendMessage(tabs[0].id, { type: 'scanVueStore' }, function (res) {
+                if (chrome.runtime.lastError) {
+                    alert('\u65E0\u6CD5\u8FDE\u63A5\u5230 biji.com \u9875\u9762\u3002\u8BF7\u786E\u4FDD\u5F53\u524D\u6807\u7B7E\u9875\u662F biji.com\u3002');
+                    return;
+                }
+                const notes = res && res.notes ? res.notes : [];
+                if (notes.length > 0) {
+                    chrome.runtime.sendMessage({ type: 'storeVueNotes', notes });
+                    setTimeout(refresh, 500);
+                }
+                alert('Vue Store \u626B\u63CF\u5B8C\u6210\uFF0C\u53D1\u73B0 ' + notes.length + ' \u6761\u7B14\u8BB0\u3002');
+            });
+        });
+    });
+    // --- Clear data ---
+    btnClear.addEventListener('click', function () {
+        if (!confirm('\u786E\u5B9A\u8981\u6E05\u7A7A\u6240\u6709\u5DF2\u6355\u83B7\u7684\u7B14\u8BB0\u6570\u636E\u5417\uFF1F'))
+            return;
+        chrome.runtime.sendMessage({ type: 'clearNotes' }, function () {
+            chrome.runtime.sendMessage({ type: 'clearDiscovery' }, function () {
+                selectedIds = {};
+                refresh();
+            });
+        });
+    });
+    // --- Discovery toggle ---
+    chrome.storage.local.get('discoveryMode', function (data) {
+        discoveryToggle.checked = data.discoveryMode !== false;
+    });
+    discoveryToggle.addEventListener('change', function () {
+        chrome.storage.local.set({ discoveryMode: this.checked });
+    });
+    // --- Active Fetcher ---
+    if (btnFetchAll) {
+        btnFetchAll.addEventListener('click', function () {
+            chrome.storage.local.get('settings', function (data) {
+                const settings = data.settings || {};
+                const fetchDelay = settings.fetchDelay || 500;
+                btnFetchAll.disabled = true;
+                btnCancelFetch.style.display = '';
+                fetchStatusEl.style.display = 'block';
+                progressEl.classList.add('active');
+                chrome.runtime.sendMessage({ type: 'fetchAll', fetchDelay });
+            });
         });
     }
+    if (btnCancelFetch) {
+        btnCancelFetch.addEventListener('click', function () {
+            chrome.runtime.sendMessage({ type: 'cancelFetch' });
+            fetchStatusEl.textContent = '\u5DF2\u53D6\u6D88';
+            btnFetchAll.disabled = false;
+            btnCancelFetch.style.display = 'none';
+            setTimeout(function () {
+                progressEl.classList.remove('active');
+                fetchStatusEl.style.display = 'none';
+            }, 2000);
+        });
+    }
+    // Listen for messages from background.js
+    chrome.runtime.onMessage.addListener(function (msg) {
+        if (msg.type === 'fetchStatus') {
+            const payload = msg.payload || {};
+            fetchStatusEl.style.display = 'block';
+            fetchStatusEl.textContent = payload.status || '';
+            ptxtEl.textContent = payload.status || '';
+            if (payload.done) {
+                pfillEl.style.width = '100%';
+                btnFetchAll.disabled = false;
+                btnCancelFetch.style.display = 'none';
+                setTimeout(function () {
+                    progressEl.classList.remove('active');
+                    fetchStatusEl.style.display = 'none';
+                }, 4000);
+                refresh();
+            }
+        }
+        else if (msg.type === 'notesUpdated') {
+            noteCountEl.textContent = msg.count;
+            btnFetchAll.textContent = '\u83B7\u53D6\u5168\u90E8\u7B14\u8BB0 (' + msg.count + '\u6761)';
+        }
+    });
+    // --- Tab switching ---
+    const tabBtns = document.querySelectorAll('.tab-btn');
+    const tabPanels = document.querySelectorAll('.tab-panel');
+    tabBtns.forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            const tab = this.getAttribute('data-tab');
+            tabBtns.forEach(function (b) { b.classList.toggle('active', b.getAttribute('data-tab') === tab); });
+            tabPanels.forEach(function (p) {
+                p.classList.toggle('active', p.id === (tab === 'export' ? 'panelExport' : 'panelSubs'));
+            });
+            if (tab === 'subs')
+                loadSubsTab();
+        });
+    });
     // --- Init ---
-    loadSettingsCb(function (settings) {
-        currentSettings = settings;
-        ExportTracker.load(function () { loadNotes(); });
+    loadSettingsLocal(function () {
+        initFileFormatToggle();
+        initFormatToggle();
+        if (currentSettings.exportMode === 'vault') {
+            activeExportFormat = 'vault';
+        }
+        updateFormatToggleUI();
+        ExportTracker.load(function () { refresh(); });
     });
 
 })();

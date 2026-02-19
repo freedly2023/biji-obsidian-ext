@@ -3,385 +3,11 @@
   <head>
     <meta charset="UTF-8" />
     <title>Biji to Obsidian — 设置</title>
-    <style>
-      * {
-        margin: 0;
-        padding: 0;
-        box-sizing: border-box;
-      }
-      body {
-        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-        font-size: 14px;
-        color: #333;
-        background: #f5f5f7;
-        min-height: 100vh;
-      }
-
-      .container {
-        max-width: 800px;
-        margin: 24px auto;
-        padding: 0 20px;
-      }
-
-      .card {
-        background: #fff;
-        border-radius: 12px;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
-        padding: 24px;
-        margin-bottom: 20px;
-      }
-      .card h2 {
-        font-size: 16px;
-        font-weight: 600;
-        color: #6c5ce7;
-        margin-bottom: 16px;
-        padding-bottom: 10px;
-        border-bottom: 2px solid #f0eef9;
-      }
-
-      .form-group {
-        margin-bottom: 18px;
-      }
-      .form-group:last-child {
-        margin-bottom: 0;
-      }
-      .form-group label {
-        display: block;
-        font-weight: 500;
-        margin-bottom: 6px;
-        color: #444;
-      }
-      .form-group .hint {
-        font-size: 12px;
-        color: #888;
-        margin-top: 4px;
-      }
-
-      input[type='text'],
-      input[type='number'],
-      select {
-        width: 100%;
-        padding: 10px 12px;
-        border: 1px solid #ddd;
-        border-radius: 8px;
-        font-size: 14px;
-        font-family: inherit;
-        transition: border-color 0.2s;
-      }
-      input[type='text']:focus,
-      input[type='number']:focus,
-      select:focus {
-        outline: none;
-        border-color: #6c5ce7;
-        box-shadow: 0 0 0 3px rgba(108, 92, 231, 0.1);
-      }
-
-      .radio-group {
-        display: flex;
-        gap: 16px;
-      }
-      .radio-group.vertical {
-        flex-direction: column;
-        gap: 10px;
-      }
-      .radio-option {
-        flex: 1;
-        padding: 14px 16px;
-        border: 2px solid #e9ecef;
-        border-radius: 10px;
-        cursor: pointer;
-        transition: all 0.2s;
-        position: relative;
-      }
-      .radio-option:hover {
-        border-color: #c4bbf0;
-      }
-      .radio-option.selected {
-        border-color: #6c5ce7;
-        background: #f8f7fd;
-      }
-      .radio-option input[type='radio'] {
-        position: absolute;
-        opacity: 0;
-        width: 0;
-        height: 0;
-      }
-      .radio-option .radio-label {
-        font-weight: 600;
-        font-size: 14px;
-        display: block;
-        margin-bottom: 4px;
-      }
-      .radio-option .radio-desc {
-        font-size: 12px;
-        color: #777;
-      }
-
-      .checkbox-row {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        padding: 10px 0;
-        border-bottom: 1px solid #f5f5f5;
-      }
-      .checkbox-row:last-child {
-        border-bottom: none;
-      }
-      .checkbox-row input[type='checkbox'] {
-        width: 18px;
-        height: 18px;
-        accent-color: #6c5ce7;
-        cursor: pointer;
-      }
-      .checkbox-row .cb-text {
-        flex: 1;
-      }
-      .checkbox-row .cb-label {
-        font-weight: 500;
-        color: #444;
-      }
-      .checkbox-row .cb-hint {
-        font-size: 12px;
-        color: #888;
-      }
-
-      /* Vault status */
-      .vault-status {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        padding: 12px 14px;
-        border-radius: 8px;
-        margin-bottom: 14px;
-        font-size: 13px;
-      }
-      .vault-status.connected {
-        background: #d4edda;
-        color: #155724;
-      }
-      .vault-status.needs-permission {
-        background: #fff3cd;
-        color: #856404;
-      }
-      .vault-status.not-selected {
-        background: #f8d7da;
-        color: #721c24;
-      }
-      .vault-status.unsupported {
-        background: #e9ecef;
-        color: #666;
-      }
-      .vault-status .dot {
-        width: 10px;
-        height: 10px;
-        border-radius: 50%;
-        flex-shrink: 0;
-      }
-      .vault-status.connected .dot {
-        background: #28a745;
-      }
-      .vault-status.needs-permission .dot {
-        background: #ffc107;
-      }
-      .vault-status.not-selected .dot {
-        background: #dc3545;
-      }
-      .vault-status.unsupported .dot {
-        background: #999;
-      }
-
-      .btn {
-        padding: 10px 20px;
-        border: none;
-        border-radius: 8px;
-        cursor: pointer;
-        font-size: 13px;
-        font-weight: 500;
-        font-family: inherit;
-        transition: opacity 0.2s;
-      }
-      .btn:hover {
-        opacity: 0.85;
-      }
-      .btn:disabled {
-        opacity: 0.5;
-        cursor: not-allowed;
-      }
-      .btn-primary {
-        background: #6c5ce7;
-        color: #fff;
-      }
-      .btn-secondary {
-        background: #e9ecef;
-        color: #333;
-      }
-      .btn-warning {
-        background: #ffc107;
-        color: #333;
-      }
-      .btn-danger {
-        background: #e74c3c;
-        color: #fff;
-      }
-
-      .btn-row {
-        display: flex;
-        gap: 10px;
-        margin-top: 10px;
-      }
-
-      .vault-section {
-        display: none;
-      }
-      .vault-section.visible {
-        display: block;
-      }
-
-      /* Actions footer */
-      .actions {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        gap: 12px;
-      }
-      .actions .left {
-        display: flex;
-        gap: 10px;
-      }
-
-      .status-msg {
-        font-size: 13px;
-        padding: 10px 14px;
-        border-radius: 8px;
-        margin-top: 16px;
-        display: none;
-      }
-      .status-msg.success {
-        display: block;
-        background: #d4edda;
-        color: #155724;
-      }
-      .status-msg.error {
-        display: block;
-        background: #f8d7da;
-        color: #721c24;
-      }
-
-      .inline-number {
-        width: 100px;
-        display: inline-block;
-      }
-      .inline-select {
-        width: 200px;
-        display: inline-block;
-      }
-
-      .custom-input-row {
-        margin-top: 10px;
-        display: none;
-      }
-      .custom-input-row.visible {
-        display: block;
-      }
-
-      .var-hint {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 6px;
-        margin-top: 8px;
-      }
-      .var-hint code {
-        background: #f0eef9;
-        padding: 2px 8px;
-        border-radius: 4px;
-        font-size: 12px;
-        color: #6c5ce7;
-      }
-
-      .fm-fields {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 0;
-      }
-
-      /* Feed list items */
-      .feed-item {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        padding: 10px 0;
-        border-bottom: 1px solid #f0f0f0;
-      }
-      .feed-item:last-child {
-        border-bottom: none;
-      }
-      .feed-item .feed-info {
-        flex: 1;
-        min-width: 0;
-      }
-      .feed-item .feed-name {
-        font-weight: 500;
-        color: #333;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-      }
-      .feed-item .feed-url {
-        font-size: 12px;
-        color: #888;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-      }
-      .feed-item .feed-last-check {
-        font-size: 11px;
-        color: #aaa;
-      }
-      .feed-item .feed-actions {
-        display: flex;
-        gap: 6px;
-        flex-shrink: 0;
-      }
-      .feed-item .feed-actions button {
-        padding: 4px 10px;
-        font-size: 12px;
-        border-radius: 6px;
-      }
-      .toggle-btn {
-        padding: 4px 10px;
-        border: 1px solid #ddd;
-        border-radius: 6px;
-        background: #fff;
-        cursor: pointer;
-        font-size: 12px;
-        font-family: inherit;
-      }
-      .toggle-btn.enabled {
-        color: #27ae60;
-        border-color: #27ae60;
-      }
-      .toggle-btn.disabled {
-        color: #999;
-        border-color: #ddd;
-      }
-      .delete-btn {
-        padding: 4px 10px;
-        border: 1px solid #e74c3c;
-        border-radius: 6px;
-        background: #fff;
-        color: #e74c3c;
-        cursor: pointer;
-        font-size: 12px;
-        font-family: inherit;
-      }
-      .delete-btn:hover {
-        background: #e74c3c;
-        color: #fff;
-      }
-    </style>
-  </head>
-  <body>
+    <link rel="stylesheet" href="styles/common.css" />
+    <link rel="stylesheet" href="styles/options.css" />
     <link rel="stylesheet" href="nav-shared.css" />
+  </head>
+  <body class="page-body">
     <nav class="nav-tab-bar">
       <div class="nav-tab-bar-inner">
         <a class="nav-tab" href="notes.html">笔记管理</a>
@@ -391,401 +17,497 @@
     </nav>
 
     <div class="container">
-      <!-- Export Mode -->
-      <div class="card">
-        <h2>导出方式</h2>
-        <div class="radio-group">
-          <label class="radio-option selected" id="radioZip">
-            <input type="radio" name="exportMode" value="zip" checked />
-            <span class="radio-label">ZIP 下载</span>
-            <span class="radio-desc">打包为 ZIP 文件下载，手动导入 Obsidian</span>
-          </label>
-          <label class="radio-option" id="radioVault">
-            <input type="radio" name="exportMode" value="vault" />
-            <span class="radio-label">直接写入 Vault</span>
-            <span class="radio-desc">通过 File System Access API 直接写入 Obsidian vault</span>
-          </label>
-        </div>
+      <div class="settings-tabbar" id="settingsTabBar">
+        <button type="button" class="settings-tab active" data-tab="export">导出</button>
+        <button type="button" class="settings-tab" data-tab="content">内容格式</button>
+        <button type="button" class="settings-tab" data-tab="performance">性能</button>
+        <button type="button" class="settings-tab" data-tab="link">链接注入</button>
+        <button type="button" class="settings-tab" data-tab="feed">订阅源</button>
+        <button type="button" class="settings-tab" data-tab="advanced">高级</button>
       </div>
 
-      <!-- Vault Settings -->
-      <div class="card vault-section" id="vaultSection">
-        <h2>Vault 设置</h2>
-
-        <div id="vaultStatus" class="vault-status not-selected">
-          <span class="dot"></span>
-          <span id="vaultStatusText">未选择 Vault 文件夹</span>
-        </div>
-
-        <div class="btn-row">
-          <button class="btn btn-primary" id="btnPickVault">选择 Vault 文件夹</button>
-          <button class="btn btn-warning" id="btnGrantPerm" style="display: none">授予权限</button>
-          <button class="btn btn-secondary" id="btnClearVault">清除 Vault</button>
-        </div>
-
-        <div class="form-group" style="margin-top: 16px">
-          <label for="vaultSubfolder">子文件夹路径</label>
-          <input type="text" id="vaultSubfolder" placeholder="biji-notes" value="biji-notes" />
-          <div class="hint">笔记将导出到 vault 内的此子文件夹中</div>
-        </div>
-      </div>
-
-      <!-- Filename Template -->
-      <div class="card">
-        <h2>文件命名</h2>
-
-        <div class="form-group">
-          <label>预设模板</label>
-          <div class="radio-group vertical" id="filenameRadioGroup">
-            <label class="radio-option selected">
-              <input type="radio" name="filenameTemplate" value="{date}-{title}" checked />
-              <span class="radio-label">{date}-{title}</span>
-              <span class="radio-desc">默认（如 2026-01-11-健康.md）</span>
+      <section class="settings-panel active" data-panel="export">
+        <!-- Export Mode -->
+        <div class="card">
+          <h2>导出方式</h2>
+          <div class="radio-group">
+            <label class="radio-option selected" id="radioZip">
+              <input type="radio" name="exportMode" value="zip" checked />
+              <span class="radio-label">ZIP 下载</span>
+              <span class="radio-desc">打包为 ZIP 文件下载，手动导入 Obsidian</span>
             </label>
-            <label class="radio-option">
-              <input type="radio" name="filenameTemplate" value="{title}-{date}" />
-              <span class="radio-label">{title}-{date}</span>
-              <span class="radio-desc">标题优先</span>
-            </label>
-            <label class="radio-option">
-              <input type="radio" name="filenameTemplate" value="{title}" />
-              <span class="radio-label">{title}</span>
-              <span class="radio-desc">仅标题</span>
-            </label>
-            <label class="radio-option">
-              <input type="radio" name="filenameTemplate" value="{date}/{title}" />
-              <span class="radio-label">{date}/{title}</span>
-              <span class="radio-desc">按日期分文件夹</span>
-            </label>
-            <label class="radio-option">
-              <input type="radio" name="filenameTemplate" value="custom" />
-              <span class="radio-label">自定义模板</span>
-              <span class="radio-desc">输入自定义命名规则</span>
-            </label>
-          </div>
-          <div class="custom-input-row" id="customTemplateRow">
-            <input type="text" id="customTemplate" placeholder="{year}/{month}/{title}" />
-          </div>
-          <div class="var-hint">
-            <span>可用变量:</span>
-            <code>{date}</code>
-            <code>{title}</code>
-            <code>{id}</code>
-            <code>{type}</code>
-            <code>{year}</code>
-            <code>{month}</code>
-          </div>
-        </div>
-
-        <div class="form-group">
-          <label for="dateFormat">日期格式</label>
-          <select id="dateFormat" class="inline-select">
-            <option value="YYYY-MM-DD" selected>YYYY-MM-DD（如 2026-01-11）</option>
-            <option value="YYYYMMDD">YYYYMMDD（如 20260111）</option>
-            <option value="YYYY/MM/DD">YYYY/MM/DD（如 2026/01/11）</option>
-          </select>
-        </div>
-      </div>
-
-      <!-- Transcript Mode -->
-      <div class="card">
-        <h2>文字记录导出</h2>
-        <div class="form-group">
-          <label>导出模式</label>
-          <div class="radio-group vertical" id="transcriptRadioGroup">
-            <label class="radio-option selected">
-              <input type="radio" name="transcriptMode" value="none" checked />
-              <span class="radio-label">不导出</span>
-              <span class="radio-desc">默认，不单独导出原始文字记录</span>
-            </label>
-            <label class="radio-option">
-              <input type="radio" name="transcriptMode" value="separate" />
-              <span class="radio-label">单独文件</span>
-              <span class="radio-desc">为每条笔记生成 xxx-transcript.md 文件</span>
-            </label>
-            <label class="radio-option">
-              <input type="radio" name="transcriptMode" value="merged" />
-              <span class="radio-label">合并到笔记末尾</span>
-              <span class="radio-desc">在笔记正文后添加分隔线和原始文字记录</span>
+            <label class="radio-option" id="radioVault">
+              <input type="radio" name="exportMode" value="vault" />
+              <span class="radio-label">直接写入 Vault</span>
+              <span class="radio-desc">通过 File System Access API 直接写入 Obsidian vault</span>
             </label>
           </div>
         </div>
-      </div>
 
-      <!-- Folder Organization -->
-      <div class="card">
-        <h2>笔记分类 / 文件夹</h2>
-        <div class="form-group">
-          <label>分类方式</label>
-          <div class="radio-group vertical" id="folderRadioGroup">
-            <label class="radio-option selected">
-              <input type="radio" name="folderMode" value="flat" checked />
-              <span class="radio-label">平铺</span>
-              <span class="radio-desc">所有笔记放在同一目录</span>
-            </label>
-            <label class="radio-option">
-              <input type="radio" name="folderMode" value="byType" />
-              <span class="radio-label">按类型</span>
-              <span class="radio-desc">按笔记类型分文件夹（voice/、text/）</span>
-            </label>
-            <label class="radio-option">
-              <input type="radio" name="folderMode" value="byTag" />
-              <span class="radio-label">按标签</span>
-              <span class="radio-desc">按第一个标签分文件夹</span>
-            </label>
-            <label class="radio-option">
-              <input type="radio" name="folderMode" value="byMonth" />
-              <span class="radio-label">按月份</span>
-              <span class="radio-desc">按月份分文件夹（如 2026-01/）</span>
-            </label>
+        <!-- Vault Settings -->
+        <div class="card vault-section" id="vaultSection">
+          <h2>Vault 设置</h2>
+
+          <div id="vaultStatus" class="vault-status not-selected">
+            <span class="dot"></span>
+            <span id="vaultStatusText">未选择 Vault 文件夹</span>
           </div>
-          <div class="hint" id="folderHint" style="margin-top: 8px; display: none">
-            命名模板中已包含 / 路径分隔符，文件夹分类将自动由模板决定。
+
+          <div class="btn-row">
+            <button class="btn btn-primary" id="btnPickVault">选择 Vault 文件夹</button>
+            <button class="btn btn-warning" id="btnGrantPerm" style="display:none">授予权限</button>
+            <button class="btn btn-secondary" id="btnClearVault">清除 Vault</button>
+          </div>
+
+          <div class="form-group mt-16">
+            <label for="vaultSubfolder">子文件夹路径</label>
+            <input type="text" id="vaultSubfolder" placeholder="biji-notes" value="biji-notes" />
+            <div class="hint">笔记将导出到 vault 内的此子文件夹中</div>
           </div>
         </div>
-      </div>
 
-      <!-- Export Format -->
-      <div class="card">
-        <h2>导出格式</h2>
+        <!-- Filename Template -->
+        <div class="card">
+          <h2>文件命名</h2>
 
-        <div class="form-group">
-          <label>Frontmatter 字段</label>
-          <div class="fm-fields">
-            <div class="checkbox-row">
-              <input type="checkbox" id="fmTitle" checked data-field="title" />
-              <div class="cb-text"><div class="cb-label">title</div></div>
+          <div class="form-group">
+            <label>预设模板</label>
+            <div class="radio-group vertical" id="filenameRadioGroup">
+              <label class="radio-option selected">
+                <input type="radio" name="filenameTemplate" value="{date}-{title}" checked />
+                <span class="radio-label">{date}-{title}</span>
+                <span class="radio-desc">默认（如 2026-01-11-健康.md）</span>
+              </label>
+              <label class="radio-option">
+                <input type="radio" name="filenameTemplate" value="{title}-{date}" />
+                <span class="radio-label">{title}-{date}</span>
+                <span class="radio-desc">标题优先</span>
+              </label>
+              <label class="radio-option">
+                <input type="radio" name="filenameTemplate" value="{title}" />
+                <span class="radio-label">{title}</span>
+                <span class="radio-desc">仅标题</span>
+              </label>
+              <label class="radio-option">
+                <input type="radio" name="filenameTemplate" value="{date}/{title}" />
+                <span class="radio-label">{date}/{title}</span>
+                <span class="radio-desc">按日期分文件夹</span>
+              </label>
+              <label class="radio-option">
+                <input type="radio" name="filenameTemplate" value="custom" />
+                <span class="radio-label">自定义模板</span>
+                <span class="radio-desc">输入自定义命名规则</span>
+              </label>
             </div>
-            <div class="checkbox-row">
-              <input type="checkbox" id="fmCreated" checked data-field="created" />
-              <div class="cb-text"><div class="cb-label">created</div></div>
+            <div class="custom-input-row" id="customTemplateRow">
+              <input type="text" id="customTemplate" placeholder="{year}/{month}/{title}" />
             </div>
-            <div class="checkbox-row">
-              <input type="checkbox" id="fmModified" checked data-field="modified" />
-              <div class="cb-text"><div class="cb-label">modified</div></div>
+            <div class="var-hint">
+              <span>可用变量:</span>
+              <code>{date}</code>
+              <code>{title}</code>
+              <code>{id}</code>
+              <code>{type}</code>
+              <code>{year}</code>
+              <code>{month}</code>
             </div>
-            <div class="checkbox-row">
-              <input type="checkbox" id="fmSource" checked data-field="source" />
-              <div class="cb-text"><div class="cb-label">source</div></div>
-            </div>
-            <div class="checkbox-row">
-              <input type="checkbox" id="fmType" checked data-field="type" />
-              <div class="cb-text"><div class="cb-label">type</div></div>
-            </div>
-            <div class="checkbox-row">
-              <input type="checkbox" id="fmTags" checked data-field="tags" />
-              <div class="cb-text"><div class="cb-label">tags</div></div>
-            </div>
-            <div class="checkbox-row">
-              <input type="checkbox" id="fmBijiId" checked data-field="biji_id" />
-              <div class="cb-text"><div class="cb-label">biji_id</div></div>
-            </div>
-            <div class="checkbox-row">
-              <input type="checkbox" id="fmExported" checked data-field="exported" />
-              <div class="cb-text"><div class="cb-label">exported</div></div>
+          </div>
+
+          <div class="form-group">
+            <label for="dateFormat">日期格式</label>
+            <select id="dateFormat" class="inline-select">
+              <option value="YYYY-MM-DD" selected>YYYY-MM-DD（如 2026-01-11）</option>
+              <option value="YYYYMMDD">YYYYMMDD（如 20260111）</option>
+              <option value="YYYY/MM/DD">YYYY/MM/DD（如 2026/01/11）</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Transcript Mode -->
+        <div class="card">
+          <h2>文字记录导出</h2>
+          <div class="form-group">
+            <label>导出模式</label>
+            <div class="radio-group vertical" id="transcriptRadioGroup">
+              <label class="radio-option selected">
+                <input type="radio" name="transcriptMode" value="none" checked />
+                <span class="radio-label">不导出</span>
+                <span class="radio-desc">默认，不单独导出原始文字记录</span>
+              </label>
+              <label class="radio-option">
+                <input type="radio" name="transcriptMode" value="separate" />
+                <span class="radio-label">单独文件</span>
+                <span class="radio-desc">为每条笔记生成 xxx-transcript.md 文件</span>
+              </label>
+              <label class="radio-option">
+                <input type="radio" name="transcriptMode" value="merged" />
+                <span class="radio-label">合并到笔记末尾</span>
+                <span class="radio-desc">在笔记正文后添加分隔线和原始文字记录</span>
+              </label>
             </div>
           </div>
         </div>
 
-        <div class="form-group">
-          <label>图片处理方式</label>
-          <div class="radio-group" id="imageFormatGroup">
-            <label class="radio-option selected">
-              <input type="radio" name="imageFormat" value="link" checked />
-              <span class="radio-label">远程链接</span>
-              <span class="radio-desc">保持原始 URL 链接（默认）</span>
-            </label>
-            <label class="radio-option">
-              <input type="radio" name="imageFormat" value="obsidian" />
-              <span class="radio-label">Obsidian 格式</span>
-              <span class="radio-desc">使用 ![[image.png]] wiki 链接格式</span>
-            </label>
+        <!-- Folder Organization -->
+        <div class="card">
+          <h2>笔记分类 / 文件夹</h2>
+          <div class="form-group">
+            <label>分类方式</label>
+            <div class="radio-group vertical" id="folderRadioGroup">
+              <label class="radio-option selected">
+                <input type="radio" name="folderMode" value="flat" checked />
+                <span class="radio-label">平铺</span>
+                <span class="radio-desc">所有笔记放在同一目录</span>
+              </label>
+              <label class="radio-option">
+                <input type="radio" name="folderMode" value="byType" />
+                <span class="radio-label">按类型</span>
+                <span class="radio-desc">按笔记类型分文件夹（voice/、text/）</span>
+              </label>
+              <label class="radio-option">
+                <input type="radio" name="folderMode" value="byTag" />
+                <span class="radio-label">按标签</span>
+                <span class="radio-desc">按第一个标签分文件夹</span>
+              </label>
+              <label class="radio-option">
+                <input type="radio" name="folderMode" value="byMonth" />
+                <span class="radio-label">按月份</span>
+                <span class="radio-desc">按月份分文件夹（如 2026-01/）</span>
+              </label>
+            </div>
+            <div class="hint" id="folderHint">
+              命名模板中已包含 / 路径分隔符，文件夹分类将自动由模板决定。
+            </div>
           </div>
         </div>
-      </div>
+      </section>
 
-      <!-- Export Preferences -->
-      <div class="card">
-        <h2>导出偏好</h2>
+      <section class="settings-panel" data-panel="content">
+        <!-- Export Format -->
+        <div class="card">
+          <h2>导出格式</h2>
 
-        <div class="checkbox-row">
-          <input type="checkbox" id="includeAudioLink" checked />
-          <div class="cb-text">
-            <div class="cb-label">包含音频链接</div>
-            <div class="cb-hint">在语音笔记末尾添加原始录音链接</div>
+          <div class="form-group">
+            <label>Frontmatter 字段</label>
+            <div class="fm-fields">
+              <div class="checkbox-row">
+                <input type="checkbox" id="fmTitle" checked data-field="title" />
+                <div class="cb-text"><div class="cb-label">title</div></div>
+              </div>
+              <div class="checkbox-row">
+                <input type="checkbox" id="fmCreated" checked data-field="created" />
+                <div class="cb-text"><div class="cb-label">created</div></div>
+              </div>
+              <div class="checkbox-row">
+                <input type="checkbox" id="fmModified" checked data-field="modified" />
+                <div class="cb-text"><div class="cb-label">modified</div></div>
+              </div>
+              <div class="checkbox-row">
+                <input type="checkbox" id="fmSource" checked data-field="source" />
+                <div class="cb-text"><div class="cb-label">source</div></div>
+              </div>
+              <div class="checkbox-row">
+                <input type="checkbox" id="fmType" checked data-field="type" />
+                <div class="cb-text"><div class="cb-label">type</div></div>
+              </div>
+              <div class="checkbox-row">
+                <input type="checkbox" id="fmTags" checked data-field="tags" />
+                <div class="cb-text"><div class="cb-label">tags</div></div>
+              </div>
+              <div class="checkbox-row">
+                <input type="checkbox" id="fmBijiId" checked data-field="biji_id" />
+                <div class="cb-text"><div class="cb-label">biji_id</div></div>
+              </div>
+              <div class="checkbox-row">
+                <input type="checkbox" id="fmExported" checked data-field="exported" />
+                <div class="cb-text"><div class="cb-label">exported</div></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>图片处理方式</label>
+            <div class="radio-group" id="imageFormatGroup">
+              <label class="radio-option selected">
+                <input type="radio" name="imageFormat" value="link" checked />
+                <span class="radio-label">远程链接</span>
+                <span class="radio-desc">保持原始 URL 链接（默认）</span>
+              </label>
+              <label class="radio-option">
+                <input type="radio" name="imageFormat" value="obsidian" />
+                <span class="radio-label">Obsidian 格式</span>
+                <span class="radio-desc">使用 ![[image.png]] wiki 链接格式</span>
+              </label>
+            </div>
           </div>
         </div>
 
-        <div class="checkbox-row">
-          <input type="checkbox" id="includeImages" checked />
-          <div class="cb-text">
-            <div class="cb-label">包含图片</div>
-            <div class="cb-hint">在笔记末尾添加图片画廊</div>
-          </div>
-        </div>
+        <!-- Export Preferences -->
+        <div class="card">
+          <h2>导出偏好</h2>
 
-        <div class="checkbox-row">
-          <input type="checkbox" id="voiceSentenceSplit" checked />
-          <div class="cb-text">
-            <div class="cb-label">语音笔记断句</div>
-            <div class="cb-hint">按标点符号（。！？）拆分语音笔记为段落</div>
-          </div>
-        </div>
-
-        <div class="form-group" style="margin-top: 14px">
-          <label for="tagPrefix">标签前缀</label>
-          <input type="text" id="tagPrefix" value="#" style="width: 80px" />
-          <div class="hint">标签使用的前缀符号</div>
-        </div>
-      </div>
-
-      <!-- Link Submission Settings -->
-      <div class="card">
-        <h2>链接提交</h2>
-
-        <div class="checkbox-row">
-          <input type="checkbox" id="enableInjectBtn" checked />
-          <div class="cb-text">
-            <div class="cb-label">启用页面内按钮注入</div>
-            <div class="cb-hint">在 YouTube、B站、小宇宙页面标题下方显示「Get笔记」按钮</div>
-          </div>
-        </div>
-
-        <div class="form-group" style="margin-top: 14px">
-          <label>平台开关</label>
           <div class="checkbox-row">
-            <input type="checkbox" id="injectBtnYoutube" checked />
-            <div class="cb-text"><div class="cb-label">YouTube</div></div>
+            <input type="checkbox" id="includeAudioLink" checked />
+            <div class="cb-text">
+              <div class="cb-label">包含音频链接</div>
+              <div class="cb-hint">在语音笔记末尾添加原始录音链接</div>
+            </div>
           </div>
+
           <div class="checkbox-row">
-            <input type="checkbox" id="injectBtnBilibili" checked />
-            <div class="cb-text"><div class="cb-label">B站 (Bilibili)</div></div>
+            <input type="checkbox" id="includeImages" checked />
+            <div class="cb-text">
+              <div class="cb-label">包含图片</div>
+              <div class="cb-hint">在笔记末尾添加图片画廊</div>
+            </div>
           </div>
+
           <div class="checkbox-row">
-            <input type="checkbox" id="injectBtnXiaoyuzhou" checked />
-            <div class="cb-text"><div class="cb-label">小宇宙</div></div>
+            <input type="checkbox" id="voiceSentenceSplit" checked />
+            <div class="cb-text">
+              <div class="cb-label">语音笔记断句</div>
+              <div class="cb-hint">按标点符号（。！？）拆分语音笔记为段落</div>
+            </div>
+          </div>
+
+          <div class="form-group mt-14">
+            <label for="tagPrefix">标签前缀</label>
+            <input type="text" id="tagPrefix" value="#" />
+            <div class="hint">标签使用的前缀符号</div>
           </div>
         </div>
+      </section>
 
-        <div class="form-group" style="margin-top: 14px">
-          <label>已发现的 API 端点</label>
-          <input type="text" id="discoveredApiUrl" readonly
-            value="https://get-notes.luojilab.com/voicenotes/web/notes/stream"
-            style="background: #f5f5f7; color: #666" />
-          <div class="hint">由 Discovery 模式自动发现（只读）</div>
-        </div>
-      </div>
+      <section class="settings-panel" data-panel="link">
+        <!-- Link Submission Settings -->
+        <div class="card">
+          <h2>链接提交</h2>
 
-      <!-- Feed Management -->
-      <div class="card">
-        <h2>订阅源管理</h2>
+          <div class="checkbox-row">
+            <input type="checkbox" id="enableInjectBtn" checked />
+            <div class="cb-text">
+              <div class="cb-label">启用页面内按钮注入</div>
+              <div class="cb-hint">在 YouTube、B站、小宇宙页面标题下方显示「Get笔记」按钮</div>
+            </div>
+          </div>
 
-        <div class="form-group">
-          <label>添加订阅源</label>
-          <div style="display: flex; gap: 8px">
-            <input type="text" id="feedUrlInput" placeholder="输入 RSS/Atom 订阅源 URL" style="flex: 1" />
-            <button class="btn btn-primary" id="btnAddFeed">添加</button>
+          <div class="form-group mt-14">
+            <label>平台开关</label>
+            <div class="checkbox-row">
+              <input type="checkbox" id="injectBtnYoutube" checked />
+              <div class="cb-text"><div class="cb-label">YouTube</div></div>
+            </div>
+            <div class="checkbox-row">
+              <input type="checkbox" id="injectBtnBilibili" checked />
+              <div class="cb-text"><div class="cb-label">B站 (Bilibili)</div></div>
+            </div>
+            <div class="checkbox-row">
+              <input type="checkbox" id="injectBtnXiaoyuzhou" checked />
+              <div class="cb-text"><div class="cb-label">小宇宙</div></div>
+            </div>
+          </div>
+
+          <div class="form-group mt-14">
+            <label>已发现的 API 端点</label>
+            <input
+              type="text"
+              id="discoveredApiUrl"
+              readonly
+              value="https://get-notes.luojilab.com/voicenotes/web/notes/stream"
+            />
+            <div class="hint">由 Discovery 模式自动发现（只读）</div>
           </div>
         </div>
+      </section>
 
-        <div class="form-group">
-          <label>订阅源列表</label>
-          <div id="feedList" style="min-height: 40px">
-            <div class="hint" id="feedEmptyHint">暂无订阅源</div>
+      <section class="settings-panel" data-panel="performance">
+        <div class="card">
+          <h2>导出并发策略</h2>
+
+          <div class="form-group">
+            <label for="contentFetchConcurrency">内容抓取并发</label>
+            <input
+              type="number"
+              id="contentFetchConcurrency"
+              value="5"
+              min="1"
+              max="12"
+              step="1"
+              class="inline-number"
+            />
+            <div class="hint">导出前补全笔记正文时的并发请求数，建议 4-8</div>
+          </div>
+
+          <div class="form-group">
+            <label for="transcriptFetchConcurrency">文字记录抓取并发</label>
+            <input
+              type="number"
+              id="transcriptFetchConcurrency"
+              value="5"
+              min="1"
+              max="12"
+              step="1"
+              class="inline-number"
+            />
+            <div class="hint">导出前抓取 transcript 的并发请求数，建议 4-8</div>
+          </div>
+
+          <div class="form-group">
+            <label for="zipExportConcurrencyLight">ZIP 导出并发（仅 MD）</label>
+            <input
+              type="number"
+              id="zipExportConcurrencyLight"
+              value="6"
+              min="1"
+              max="12"
+              step="1"
+              class="inline-number"
+            />
+            <div class="hint">只导出 MD 时的并发处理数，建议 4-8</div>
+          </div>
+
+          <div class="form-group">
+            <label for="zipExportConcurrencyHeavy">ZIP 导出并发（含 PDF/DOCX）</label>
+            <input
+              type="number"
+              id="zipExportConcurrencyHeavy"
+              value="2"
+              min="1"
+              max="6"
+              step="1"
+              class="inline-number"
+            />
+            <div class="hint">包含 PDF/DOCX 时建议保守设置，通常 2-3</div>
+          </div>
+
+          <div class="form-group">
+            <label for="vaultWriteConcurrency">Vault 写入并发</label>
+            <input
+              type="number"
+              id="vaultWriteConcurrency"
+              value="4"
+              min="1"
+              max="12"
+              step="1"
+              class="inline-number"
+            />
+            <div class="hint">直接写入 Vault 的并发文件写入数，建议 3-6</div>
           </div>
         </div>
+      </section>
 
-        <div class="checkbox-row">
-          <input type="checkbox" id="feedAutoCheck" />
-          <div class="cb-text">
-            <div class="cb-label">自动检查</div>
-            <div class="cb-hint">定时检查订阅源并自动提交新条目</div>
+      <section class="settings-panel" data-panel="feed">
+        <!-- Feed Management -->
+        <div class="card">
+          <h2>订阅源管理</h2>
+
+          <div class="form-group">
+            <label>添加订阅源</label>
+            <div class="feed-add-row">
+              <input type="text" id="feedUrlInput" placeholder="输入 RSS/Atom 订阅源 URL" />
+              <button class="btn btn-primary" id="btnAddFeed">添加</button>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>订阅源列表</label>
+            <div id="feedList">
+              <div class="hint" id="feedEmptyHint">暂无订阅源</div>
+            </div>
+          </div>
+
+          <div class="checkbox-row">
+            <input type="checkbox" id="feedAutoCheck" />
+            <div class="cb-text">
+              <div class="cb-label">自动检查</div>
+              <div class="cb-hint">定时检查订阅源并自动提交新条目</div>
+            </div>
+          </div>
+
+          <div class="checkbox-row mt-8">
+            <input type="checkbox" id="feedAutoSubmit" checked />
+            <div class="cb-text">
+              <div class="cb-label">自动提交</div>
+              <div class="cb-hint">检查到新条目时自动提交到笔记（关闭后仅存储，需手动选择提交）</div>
+            </div>
+          </div>
+
+          <div class="form-group mt-14">
+            <label for="feedCheckInterval">检查间隔</label>
+            <select id="feedCheckInterval" class="inline-select">
+              <option value="15">15 分钟</option>
+              <option value="30">30 分钟</option>
+              <option value="60" selected>1 小时</option>
+              <option value="120">2 小时</option>
+              <option value="360">6 小时</option>
+              <option value="720">12 小时</option>
+              <option value="1440">24 小时</option>
+            </select>
+          </div>
+
+          <div class="btn-row">
+            <button class="btn btn-primary" id="btnCheckFeedsNow">立即检查</button>
+            <span id="feedCheckStatus"></span>
+            <a href="subscriptions.html" target="_blank" class="subs-link">打开订阅管理 →</a>
           </div>
         </div>
+      </section>
 
-        <div class="checkbox-row" style="margin-top: 8px">
-          <input type="checkbox" id="feedAutoSubmit" checked />
-          <div class="cb-text">
-            <div class="cb-label">自动提交</div>
-            <div class="cb-hint">检查到新条目时自动提交到笔记（关闭后仅存储，需手动选择提交）</div>
+      <section class="settings-panel" data-panel="advanced">
+        <!-- Advanced Settings -->
+        <div class="card">
+          <h2>高级设置</h2>
+
+          <div class="checkbox-row">
+            <input type="checkbox" id="discoveryMode" />
+            <div class="cb-text">
+              <div class="cb-label">Discovery 模式</div>
+              <div class="cb-hint">在控制台记录所有 API 响应，用于调试</div>
+            </div>
+          </div>
+
+          <div class="form-group mt-14">
+            <label for="fetchDelay">请求间隔 (毫秒)</label>
+            <input
+              type="number"
+              id="fetchDelay"
+              value="500"
+              min="100"
+              max="5000"
+              step="100"
+              class="inline-number"
+            />
+            <div class="hint">API 分页请求之间的等待时间，避免触发限流</div>
+          </div>
+
+          <div class="form-group">
+            <label for="scanDepth">扫描深度</label>
+            <input
+              type="number"
+              id="scanDepth"
+              value="10"
+              min="4"
+              max="20"
+              step="1"
+              class="inline-number"
+            />
+            <div class="hint">Vue Store 递归搜索的最大深度</div>
           </div>
         </div>
+      </section>
 
-        <div class="form-group" style="margin-top: 14px">
-          <label for="feedCheckInterval">检查间隔</label>
-          <select id="feedCheckInterval" class="inline-select">
-            <option value="15">15 分钟</option>
-            <option value="30">30 分钟</option>
-            <option value="60" selected>1 小时</option>
-            <option value="120">2 小时</option>
-            <option value="360">6 小时</option>
-            <option value="720">12 小时</option>
-            <option value="1440">24 小时</option>
-          </select>
-        </div>
-
-        <div class="btn-row">
-          <button class="btn btn-primary" id="btnCheckFeedsNow">立即检查</button>
-          <span id="feedCheckStatus" style="font-size: 13px; color: #888; line-height: 38px"></span>
-          <a href="subscriptions.html" target="_blank"
-            style="margin-left: auto; font-size: 13px; color: #6c5ce7; text-decoration: none; line-height: 38px">打开订阅管理 →</a>
-        </div>
-      </div>
-
-      <!-- Advanced Settings -->
-      <div class="card">
-        <h2>高级设置</h2>
-
-        <div class="checkbox-row">
-          <input type="checkbox" id="discoveryMode" />
-          <div class="cb-text">
-            <div class="cb-label">Discovery 模式</div>
-            <div class="cb-hint">在控制台记录所有 API 响应，用于调试</div>
-          </div>
-        </div>
-
-        <div class="form-group" style="margin-top: 14px">
-          <label for="fetchDelay">请求间隔 (毫秒)</label>
-          <input
-            type="number"
-            id="fetchDelay"
-            value="500"
-            min="100"
-            max="5000"
-            step="100"
-            class="inline-number"
-          />
-          <div class="hint">API 分页请求之间的等待时间，避免触发限流</div>
-        </div>
-
-        <div class="form-group">
-          <label for="scanDepth">扫描深度</label>
-          <input
-            type="number"
-            id="scanDepth"
-            value="10"
-            min="4"
-            max="20"
-            step="1"
-            class="inline-number"
-          />
-          <div class="hint">Vue Store 递归搜索的最大深度</div>
-        </div>
-      </div>
-
-      <!-- Save / Reset -->
-      <div class="card">
+      <div class="card settings-actions-card">
         <div class="actions">
           <div class="left">
-            <button class="btn btn-primary" id="btnSave">保存设置</button>
+            <button class="btn btn-primary" id="btnSave">立即保存</button>
             <button class="btn btn-danger" id="btnReset">恢复默认</button>
           </div>
+          <div class="autosave-state saved" id="autosaveState">已加载当前设置</div>
         </div>
         <div class="status-msg" id="statusMsg"></div>
       </div>
     </div>
 
-    <script src="vault-writer.js"></script>
     <script src="options.js"></script>
   </body>
 </html>
