@@ -21,6 +21,11 @@ const btnPickVault = document.getElementById('btnPickVault') as HTMLButtonElemen
 const btnGrantPerm = document.getElementById('btnGrantPerm') as HTMLButtonElement;
 const btnClearVault = document.getElementById('btnClearVault') as HTMLButtonElement;
 const vaultSubfolder = document.getElementById('vaultSubfolder') as HTMLInputElement;
+const contentFetchConcurrency = document.getElementById('contentFetchConcurrency') as HTMLInputElement;
+const transcriptFetchConcurrency = document.getElementById('transcriptFetchConcurrency') as HTMLInputElement;
+const zipExportConcurrencyLight = document.getElementById('zipExportConcurrencyLight') as HTMLInputElement;
+const zipExportConcurrencyHeavy = document.getElementById('zipExportConcurrencyHeavy') as HTMLInputElement;
+const vaultWriteConcurrency = document.getElementById('vaultWriteConcurrency') as HTMLInputElement;
 const includeAudioLink = document.getElementById('includeAudioLink') as HTMLInputElement;
 const includeImages = document.getElementById('includeImages') as HTMLInputElement;
 const voiceSentenceSplit = document.getElementById('voiceSentenceSplit') as HTMLInputElement;
@@ -69,6 +74,11 @@ let statusMsgTimer: number | null = null;
 
 const settingFieldIds = new Set<string>([
   'vaultSubfolder',
+  'contentFetchConcurrency',
+  'transcriptFetchConcurrency',
+  'zipExportConcurrencyLight',
+  'zipExportConcurrencyHeavy',
+  'vaultWriteConcurrency',
   'includeAudioLink',
   'includeImages',
   'voiceSentenceSplit',
@@ -382,11 +392,22 @@ function setFrontmatterFields(fields: Record<string, boolean>): void {
   });
 }
 
+function clampNumber(value: string, min: number, max: number, fallback: number): number {
+  const n = parseInt(value, 10);
+  if (!Number.isFinite(n)) return fallback;
+  return Math.max(min, Math.min(max, n));
+}
+
 function collectSettings(): Settings {
   const exportModeValue = document.querySelector('input[name="exportMode"]:checked') as HTMLInputElement | null;
   return {
     exportMode: (exportModeValue ? exportModeValue.value : 'zip') as 'zip' | 'vault',
     vaultSubfolder: vaultSubfolder.value.trim() || DEFAULT_SETTINGS.vaultSubfolder,
+    contentFetchConcurrency: clampNumber(contentFetchConcurrency.value, 1, 12, DEFAULT_SETTINGS.contentFetchConcurrency),
+    transcriptFetchConcurrency: clampNumber(transcriptFetchConcurrency.value, 1, 12, DEFAULT_SETTINGS.transcriptFetchConcurrency),
+    zipExportConcurrencyLight: clampNumber(zipExportConcurrencyLight.value, 1, 12, DEFAULT_SETTINGS.zipExportConcurrencyLight),
+    zipExportConcurrencyHeavy: clampNumber(zipExportConcurrencyHeavy.value, 1, 6, DEFAULT_SETTINGS.zipExportConcurrencyHeavy),
+    vaultWriteConcurrency: clampNumber(vaultWriteConcurrency.value, 1, 12, DEFAULT_SETTINGS.vaultWriteConcurrency),
     includeAudioLink: includeAudioLink.checked,
     includeImages: includeImages.checked,
     voiceSentenceSplit: voiceSentenceSplit.checked,
@@ -456,6 +477,11 @@ function loadSettings(): void {
 
     // Vault
     vaultSubfolder.value = s.vaultSubfolder;
+    contentFetchConcurrency.value = String(s.contentFetchConcurrency);
+    transcriptFetchConcurrency.value = String(s.transcriptFetchConcurrency);
+    zipExportConcurrencyLight.value = String(s.zipExportConcurrencyLight);
+    zipExportConcurrencyHeavy.value = String(s.zipExportConcurrencyHeavy);
+    vaultWriteConcurrency.value = String(s.vaultWriteConcurrency);
 
     // Filename template
     const presets = ['{date}-{title}', '{title}-{date}', '{title}', '{date}/{title}'];

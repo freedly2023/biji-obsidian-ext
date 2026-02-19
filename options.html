@@ -20,6 +20,7 @@
       <div class="settings-tabbar" id="settingsTabBar">
         <button type="button" class="settings-tab active" data-tab="export">导出</button>
         <button type="button" class="settings-tab" data-tab="content">内容格式</button>
+        <button type="button" class="settings-tab" data-tab="performance">性能</button>
         <button type="button" class="settings-tab" data-tab="link">链接注入</button>
         <button type="button" class="settings-tab" data-tab="feed">订阅源</button>
         <button type="button" class="settings-tab" data-tab="advanced">高级</button>
@@ -315,6 +316,82 @@
               value="https://get-notes.luojilab.com/voicenotes/web/notes/stream"
             />
             <div class="hint">由 Discovery 模式自动发现（只读）</div>
+          </div>
+        </div>
+      </section>
+
+      <section class="settings-panel" data-panel="performance">
+        <div class="card">
+          <h2>导出并发策略</h2>
+
+          <div class="form-group">
+            <label for="contentFetchConcurrency">内容抓取并发</label>
+            <input
+              type="number"
+              id="contentFetchConcurrency"
+              value="5"
+              min="1"
+              max="12"
+              step="1"
+              class="inline-number"
+            />
+            <div class="hint">导出前补全笔记正文时的并发请求数，建议 4-8</div>
+          </div>
+
+          <div class="form-group">
+            <label for="transcriptFetchConcurrency">文字记录抓取并发</label>
+            <input
+              type="number"
+              id="transcriptFetchConcurrency"
+              value="5"
+              min="1"
+              max="12"
+              step="1"
+              class="inline-number"
+            />
+            <div class="hint">导出前抓取 transcript 的并发请求数，建议 4-8</div>
+          </div>
+
+          <div class="form-group">
+            <label for="zipExportConcurrencyLight">ZIP 导出并发（仅 MD）</label>
+            <input
+              type="number"
+              id="zipExportConcurrencyLight"
+              value="6"
+              min="1"
+              max="12"
+              step="1"
+              class="inline-number"
+            />
+            <div class="hint">只导出 MD 时的并发处理数，建议 4-8</div>
+          </div>
+
+          <div class="form-group">
+            <label for="zipExportConcurrencyHeavy">ZIP 导出并发（含 PDF/DOCX）</label>
+            <input
+              type="number"
+              id="zipExportConcurrencyHeavy"
+              value="2"
+              min="1"
+              max="6"
+              step="1"
+              class="inline-number"
+            />
+            <div class="hint">包含 PDF/DOCX 时建议保守设置，通常 2-3</div>
+          </div>
+
+          <div class="form-group">
+            <label for="vaultWriteConcurrency">Vault 写入并发</label>
+            <input
+              type="number"
+              id="vaultWriteConcurrency"
+              value="4"
+              min="1"
+              max="12"
+              step="1"
+              class="inline-number"
+            />
+            <div class="hint">直接写入 Vault 的并发文件写入数，建议 3-6</div>
           </div>
         </div>
       </section>

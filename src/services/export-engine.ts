@@ -10,6 +10,92 @@ import { PDFConverter } from './pdf-converter';
 import { DOCXConverter } from './docx-converter';
 import { ensureExportLibraries } from './runtime-lib-loader';
 
+const DEFAULT_CONTENT_FETCH_CONCURRENCY = 5;
+const DEFAULT_TRANSCRIPT_FETCH_CONCURRENCY = 5;
+const DEFAULT_ZIP_EXPORT_CONCURRENCY_LIGHT = 6;
+const DEFAULT_ZIP_EXPORT_CONCURRENCY_HEAVY = 2;
+const DEFAULT_VAULT_WRITE_CONCURRENCY = 4;
+
+function clampInt(value: any, min: number, max: number, fallback: number): number {
+  const n = typeof value === 'number' ? value : parseInt(String(value), 10);
+  if (!Number.isFinite(n)) return fallback;
+  return Math.max(min, Math.min(max, Math.floor(n)));
+}
+
+function runWithConcurrency<T>(
+  items: T[],
+  concurrency: number,
+  worker: (item: T, index: number) => Promise<void>,
+): Promise<void> {
+  if (items.length === 0) return Promise.resolve();
+
+  const limit = Math.max(1, Math.min(concurrency, items.length));
+  let cursor = 0;
+
+  function runNext(): Promise<void> {
+    if (cursor >= items.length) return Promise.resolve();
+    const index = cursor++;
+    return worker(items[index], index).then(runNext);
+  }
+
+  const workers = Array.from({ length: limit }, () => runNext());
+  return Promise.all(workers).then(() => {});
+}
+
+function resolveContentFetchConcurrency(settings?: Settings): number {
+  return clampInt(
+    settings && settings.contentFetchConcurrency,
+    1,
+    12,
+    DEFAULT_CONTENT_FETCH_CONCURRENCY,
+  );
+}
+
+function resolveTranscriptFetchConcurrency(settings?: Settings): number {
+  return clampInt(
+    settings && settings.transcriptFetchConcurrency,
+    1,
+    12,
+    DEFAULT_TRANSCRIPT_FETCH_CONCURRENCY,
+  );
+}
+
+function resolveZipConcurrency(formats: string[], settings: Settings): number {
+  const hasHeavyFormat = formats.indexOf('pdf') !== -1 || formats.indexOf('docx') !== -1;
+  if (hasHeavyFormat) {
+    return clampInt(
+      settings.zipExportConcurrencyHeavy,
+      1,
+      6,
+      DEFAULT_ZIP_EXPORT_CONCURRENCY_HEAVY,
+    );
+  }
+  return clampInt(
+    settings.zipExportConcurrencyLight,
+    1,
+    12,
+    DEFAULT_ZIP_EXPORT_CONCURRENCY_LIGHT,
+  );
+}
+
+function resolveVaultWriteConcurrency(settings: Settings): number {
+  return clampInt(
+    settings.vaultWriteConcurrency,
+    1,
+    12,
+    DEFAULT_VAULT_WRITE_CONCURRENCY,
+  );
+}
+
+function buildMainMarkdown(note: Note, settings: Settings): string {
+  if (settings.transcriptMode === 'merged' && note.rawTranscript) {
+    const mainContent = mdConvert(note, settings);
+    const rawContent = normalizeTranscript(note.rawTranscript);
+    return mainContent + '\n\n---\n\n## 原始文字记录\n\n' + rawContent;
+  }
+  return mdConvert(note, settings);
+}
+
 export function mergePendingTags(notes: Note[]): Promise<Note[]> {
   return new Promise(resolve => {
     chrome.runtime.sendMessage({ type: 'getPendingTags' }, (res: any) => {
@@ -40,6 +126,7 @@ export function mergePendingTags(notes: Note[]): Promise<Note[]> {
 export function fetchMissingContent(
   notes: Note[],
   onProgress?: (done: number, total: number) => void,
+  settings?: Settings,
 ): Promise<void> {
   const missing = notes.filter(n => !n.content || n.content.trim().length === 0);
   if (missing.length === 0) return Promise.resolve();
@@ -47,75 +134,71 @@ export function fetchMissingContent(
   let done = 0;
   const total = missing.length;
 
-  function fetchNext(index: number): Promise<void> {
-    if (index >= missing.length) return Promise.resolve();
-    const note = missing[index];
-    done++;
-    if (onProgress) onProgress(done, total);
-
-    return new Promise<void>(resolve => {
-      chrome.runtime.sendMessage(
-        { type: 'fetchContent', noteId: note.id, noteType: (note as any).noteType || note.type || '' },
-        (res: any) => {
-          if (chrome.runtime.lastError) {
-            console.warn('[Biji Ext] Content fetch error for', note.id, chrome.runtime.lastError);
+  return runWithConcurrency(
+    missing,
+    resolveContentFetchConcurrency(settings),
+    (note): Promise<void> => {
+      return new Promise<void>(resolve => {
+        chrome.runtime.sendMessage(
+          { type: 'fetchContent', noteId: note.id, noteType: (note as any).noteType || note.type || '' },
+          (res: any) => {
+            if (chrome.runtime.lastError) {
+              console.warn('[Biji Ext] Content fetch error for', note.id, chrome.runtime.lastError);
+              resolve();
+              return;
+            }
+            if (res && res.content) {
+              note.content = res.content;
+              chrome.runtime.sendMessage({ type: 'storeVueNotes', notes: [{ id: note.id, content: res.content }] });
+            }
             resolve();
-            return;
-          }
-          if (res && res.content) {
-            note.content = res.content;
-            chrome.runtime.sendMessage({ type: 'storeVueNotes', notes: [{ id: note.id, content: res.content }] });
-          }
-          resolve();
-        },
-      );
-    }).then(() => fetchNext(index + 1));
-  }
-
-  return fetchNext(0);
+          },
+        );
+      }).then(() => {
+        done++;
+        if (onProgress) onProgress(done, total);
+      });
+    },
+  );
 }
 
 export function fetchMissingTranscripts(
   notes: Note[],
   onProgress?: (done: number, total: number) => void,
+  settings?: Settings,
 ): Promise<void> {
   const missing = notes.filter(n => !n.rawTranscript);
   if (missing.length === 0) return Promise.resolve();
 
-  const CONCURRENCY = 5;
-  let index = 0;
   let done = 0;
   const total = missing.length;
 
-  function fetchOne(): Promise<void> {
-    if (index >= missing.length) return Promise.resolve();
-    const note = missing[index++];
-
-    return new Promise<void>(resolve => {
-      chrome.runtime.sendMessage(
-        { type: 'fetchTranscript', noteId: note.id, noteType: (note as any).noteType || note.type || '' },
-        (res: any) => {
-          if (chrome.runtime.lastError) {
-            console.warn('[Biji Ext] Transcript fetch error for', note.id, chrome.runtime.lastError);
+  return runWithConcurrency(
+    missing,
+    resolveTranscriptFetchConcurrency(settings),
+    (note): Promise<void> => {
+      return new Promise<void>(resolve => {
+        chrome.runtime.sendMessage(
+          { type: 'fetchTranscript', noteId: note.id, noteType: (note as any).noteType || note.type || '' },
+          (res: any) => {
+            if (chrome.runtime.lastError) {
+              console.warn('[Biji Ext] Transcript fetch error for', note.id, chrome.runtime.lastError);
+              resolve();
+              return;
+            }
+            if (res && res.transcript) {
+              note.rawTranscript = res.transcript;
+              chrome.runtime.sendMessage({ type: 'storeVueNotes', notes: [{ id: note.id, rawTranscript: res.transcript }] });
+            }
             resolve();
-            return;
-          }
-          if (res && res.transcript) {
-            note.rawTranscript = res.transcript;
-            chrome.runtime.sendMessage({ type: 'storeVueNotes', notes: [{ id: note.id, rawTranscript: res.transcript }] });
-          }
-          resolve();
-        },
-      );
-    }).then(() => {
-      done++;
-      if (onProgress) onProgress(done, total);
-      return fetchOne();
-    });
-  }
-
-  const workers = Array(Math.min(CONCURRENCY, missing.length)).fill(null).map(() => fetchOne());
-  return Promise.all(workers).then(() => {});
+          },
+        );
+      }).then(() => {
+        done++;
+        if (onProgress) onProgress(done, total);
+      });
+    },
+  );
 }
 
 export function getActiveFormats(activeFileFormats: Record<string, boolean>): string[] {
@@ -184,59 +267,52 @@ export function zipExport(
     const folder = zip.folder('biji-export');
     const used: Record<string, boolean> = {};
     const total = mergedNotes.length;
+    const concurrency = resolveZipConcurrency(formats, settings);
+    let done = 0;
 
-    function processNote(index: number): Promise<{ success: boolean }> {
-      if (index >= total) return _finishZip(zip, mergedNotes);
-      const note = mergedNotes[index];
+    function processOneNote(note: Note): Promise<void> {
+      let chain = Promise.resolve();
 
-      function processFormat(fmtIndex: number): Promise<{ success: boolean }> {
-        if (fmtIndex >= formats.length) {
-          return processTranscript(note, formats, folder, used, settings).then(() => {
-            if (onProgress) onProgress(index + 1, total);
-            return processNote(index + 1);
-          });
-        }
+      formats.forEach(format => {
+        chain = chain.then(() => {
+          const ext = getFileExt(format);
+          let fn = fullPathWithFormat(note, settings, format);
+          fn = deduplicateFilename(fn, used, ext);
+          used[fn] = true;
 
-        const format = formats[fmtIndex];
-        const ext = getFileExt(format);
-        let fn = fullPathWithFormat(note, settings, format);
-        fn = deduplicateFilename(fn, used, ext);
-        used[fn] = true;
-
-        let genPromise: Promise<string | Blob>;
-        if (format === 'md') {
-          let mdContent: string;
-          if (settings.transcriptMode === 'merged' && note.rawTranscript) {
-            mdContent = mdConvert(note, settings);
-            const rawContent = normalizeTranscript(note.rawTranscript);
-            mdContent += '\n\n---\n\n## 原始文字记录\n\n' + rawContent;
+          let genPromise: Promise<string | Blob>;
+          if (format === 'md') {
+            genPromise = Promise.resolve(buildMainMarkdown(note, settings));
+          } else if (format === 'pdf') {
+            genPromise = PDFConverter.generatePdf(note, settings);
           } else {
-            mdContent = mdConvert(note, settings);
+            genPromise = DOCXConverter.generateDocx(note, settings);
           }
-          genPromise = Promise.resolve(mdContent);
-        } else if (format === 'pdf') {
-          genPromise = PDFConverter.generatePdf(note, settings);
-        } else {
-          genPromise = DOCXConverter.generateDocx(note, settings);
-        }
 
-        return genPromise
-          .then(data => { folder.file(fn, data); })
-          .catch(err => {
-            console.warn('[Biji Ext] Export error (' + format + ') for', note.id, err);
-            const mdFn = fn.replace(ext, '.md');
-            if (!used[mdFn]) {
-              folder.file(mdFn, mdConvert(note, settings));
-              used[mdFn] = true;
-            }
-          })
-          .then(() => processFormat(fmtIndex + 1));
-      }
+          return genPromise
+            .then(data => { folder.file(fn, data); })
+            .catch(err => {
+              console.warn('[Biji Ext] Export error (' + format + ') for', note.id, err);
+              const mdFn = fn.replace(ext, '.md');
+              if (!used[mdFn]) {
+                folder.file(mdFn, mdConvert(note, settings));
+                used[mdFn] = true;
+              }
+            });
+        });
+      });
 
-      return processFormat(0);
+      return chain.then(() => {
+        return processTranscript(note, formats, folder, used, settings);
+      }).then(() => {
+        done++;
+        if (onProgress) onProgress(done, total);
+      });
     }
 
-    return processNote(0);
+    return runWithConcurrency(mergedNotes, concurrency, (note): Promise<void> => {
+      return processOneNote(note);
+    }).then(() => _finishZip(zip, mergedNotes));
   });
 }
 
@@ -256,6 +332,7 @@ export function vaultExport(
 ): Promise<{ written: number; errors: any[] }> {
   return mergePendingTags(notes).then(mergedNotes => {
     const subfolder = settings.vaultSubfolder || 'biji-notes';
+    const vaultWriteConcurrency = resolveVaultWriteConcurrency(settings);
     const converter = {
       filename: (note: Note) => fullPath(note, settings),
       convert: (note: Note) => {
@@ -268,7 +345,13 @@ export function vaultExport(
       },
     };
 
-    return VaultWriter.writeAllNotes(mergedNotes, subfolder, converter, onProgress as any).then(
+    return VaultWriter.writeAllNotes(
+      mergedNotes,
+      subfolder,
+      converter,
+      onProgress as any,
+      vaultWriteConcurrency,
+    ).then(
       (result: { written: number; errors: any[] }) => {
         if (settings.transcriptMode === 'separate') {
           const notesWithContent = mergedNotes.filter(n => !!n.content);
@@ -282,6 +365,7 @@ export function vaultExport(
               (done: number, total: number) => {
                 if (onProgress) onProgress(done, total, done, 0);
               },
+              vaultWriteConcurrency,
             ).then((txResult: { written: number; errors: any[] }) => ({
               written: result.written + txResult.written,
               errors: result.errors.concat(txResult.errors),

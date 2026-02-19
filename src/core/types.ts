@@ -25,6 +25,11 @@ export interface Settings {
   // Export
   exportMode: 'zip' | 'vault';
   vaultSubfolder: string;
+  contentFetchConcurrency: number;
+  transcriptFetchConcurrency: number;
+  zipExportConcurrencyLight: number;
+  zipExportConcurrencyHeavy: number;
+  vaultWriteConcurrency: number;
   // Advanced
   discoveryMode: boolean;
   fetchDelay: number;

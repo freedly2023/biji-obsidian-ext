@@ -347,7 +347,7 @@ function doZipExport(): void {
       ptxtEl.textContent = '\u6B63\u5728\u83B7\u53D6\u6587\u5B57\u8BB0\u5F55...';
       chain = ExportEngine.fetchMissingTranscripts(notes, function (done: number, total: number) {
         ptxtEl.textContent = '\u83B7\u53D6\u6587\u5B57\u8BB0\u5F55 ' + done + '/' + total + '...';
-      });
+      }, settings);
     }
 
     chain
@@ -390,7 +390,7 @@ function doVaultExport(): void {
       ptxtEl.textContent = '\u6B63\u5728\u83B7\u53D6\u6587\u5B57\u8BB0\u5F55...';
       chain = ExportEngine.fetchMissingTranscripts(notes, function (done: number, total: number) {
         ptxtEl.textContent = '\u83B7\u53D6\u6587\u5B57\u8BB0\u5F55 ' + done + '/' + total + '...';
-      });
+      }, settings);
     }
 
     chain

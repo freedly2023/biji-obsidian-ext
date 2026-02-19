@@ -4,9 +4,30 @@
 const DB_NAME = 'biji-exporter';
 const STORE_NAME = 'handles';
 const HANDLE_KEY = 'vaultDir';
+const DEFAULT_VAULT_WRITE_CONCURRENCY = 4;
 
 let directoryHandle: FileSystemDirectoryHandle | null = null;
 let _pendingHandle: FileSystemDirectoryHandle | null = null;
+
+function runWithConcurrency<T>(
+  items: T[],
+  concurrency: number,
+  worker: (item: T, index: number) => Promise<void>,
+): Promise<void> {
+  if (items.length === 0) return Promise.resolve();
+
+  const limit = Math.max(1, Math.min(concurrency, items.length));
+  let cursor = 0;
+
+  function runNext(): Promise<void> {
+    if (cursor >= items.length) return Promise.resolve();
+    const index = cursor++;
+    return worker(items[index], index).then(runNext);
+  }
+
+  const workers = Array.from({ length: limit }, () => runNext());
+  return Promise.all(workers).then(() => {});
+}
 
 function openDB(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
@@ -112,6 +133,7 @@ export function writeAllNotes(
   subfolder: string,
   markdownConverter: { filename: (note: any) => string; convert: (note: any) => string },
   onProgress?: (done: number, total: number, written?: number, errors?: number) => void,
+  concurrency?: number,
 ): Promise<{ written: number; errors: any[] }> {
   if (!directoryHandle) {
     return Promise.reject(new Error('No vault directory selected'));
@@ -127,39 +149,42 @@ export function writeAllNotes(
   return targetDirPromise.then(targetDir => {
     const used: Record<string, boolean> = {};
     const total = notes.length;
+    let done = 0;
     let written = 0;
     const errors: any[] = [];
 
-    let chain = Promise.resolve();
-    for (let i = 0; i < total; i++) {
-      ((index: number) => {
-        chain = chain.then(() => {
-          const note = notes[index];
-          let fn = markdownConverter.filename(note);
+    const jobs = notes.map(note => {
+      let fn = markdownConverter.filename(note);
+      if (used[fn]) {
+        const base = fn.replace('.md', '');
+        let c = 2;
+        while (used[base + '-' + c + '.md']) c++;
+        fn = base + '-' + c + '.md';
+      }
+      used[fn] = true;
+      return { note, fn };
+    });
 
-          if (used[fn]) {
-            const base = fn.replace('.md', '');
-            let c = 2;
-            while (used[base + '-' + c + '.md']) c++;
-            fn = base + '-' + c + '.md';
-          }
-          used[fn] = true;
-
-          const md = markdownConverter.convert(note);
-          return writeFile(targetDir, fn, md)
-            .then(() => {
-              written++;
-              if (onProgress) onProgress(index + 1, total, written, errors.length);
-            })
-            .catch(e => {
-              errors.push({ filename: fn, error: e.message });
-              if (onProgress) onProgress(index + 1, total, written, errors.length);
-            });
-        });
-      })(i);
-    }
-
-    return chain.then(() => ({ written, errors }));
+    return runWithConcurrency(
+      jobs,
+      Math.max(1, Math.min(12, Math.floor(concurrency || DEFAULT_VAULT_WRITE_CONCURRENCY))),
+      (job): Promise<void> => {
+        return Promise.resolve()
+          .then(() => markdownConverter.convert(job.note))
+          .then(md => writeFile(targetDir, job.fn, md))
+          .then(() => {
+            written++;
+          })
+          .catch(e => {
+            const message = e && e.message ? e.message : String(e);
+            errors.push({ filename: job.fn, error: message });
+          })
+          .then(() => {
+            done++;
+            if (onProgress) onProgress(done, total, written, errors.length);
+          });
+      },
+    ).then(() => ({ written, errors }));
   });
 }
 

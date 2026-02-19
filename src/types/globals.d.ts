@@ -70,7 +70,8 @@ declare var VaultWriter: {
     notes: any[],
     subfolder: string,
     converter: { filename: (note: any) => string; convert: (note: any) => string },
-    onProgress?: (done: number, total: number) => void,
+    onProgress?: (done: number, total: number, written?: number, errors?: number) => void,
+    concurrency?: number,
   ): Promise<{ written: number; errors: any[] }>;
 };
 

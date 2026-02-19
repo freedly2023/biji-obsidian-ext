@@ -29,6 +29,11 @@ export const DEFAULT_SETTINGS: Settings = {
   // Export
   exportMode: 'zip',
   vaultSubfolder: 'biji-notes',
+  contentFetchConcurrency: 5,
+  transcriptFetchConcurrency: 5,
+  zipExportConcurrencyLight: 6,
+  zipExportConcurrencyHeavy: 2,
+  vaultWriteConcurrency: 4,
   // Advanced
   discoveryMode: false,
   fetchDelay: 500,

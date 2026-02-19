@@ -436,7 +436,7 @@ function exportToZip(): void {
         chain = chain.then(function () {
           return ExportEngine.fetchMissingContent(notes, function (done: number, total: number) {
             ptxtEl.textContent = '\u6B63\u5728\u83B7\u53D6\u5185\u5BB9 ' + done + '/' + total + '...';
-          });
+          }, settings);
         });
       }
 
@@ -445,7 +445,7 @@ function exportToZip(): void {
           ptxtEl.textContent = '\u6B63\u5728\u83B7\u53D6\u539F\u59CB\u6587\u5B57\u8BB0\u5F55...';
           return ExportEngine.fetchMissingTranscripts(notes, function (done: number, total: number) {
             ptxtEl.textContent = '\u6B63\u5728\u83B7\u53D6\u6587\u5B57\u8BB0\u5F55 ' + done + '/' + total + '...';
-          });
+          }, settings);
         });
       }
 
@@ -507,7 +507,7 @@ function exportToVault(): void {
         chain = chain.then(function () {
           return ExportEngine.fetchMissingContent(notes, function (done: number, total: number) {
             ptxtEl.textContent = '\u6B63\u5728\u83B7\u53D6\u5185\u5BB9 ' + done + '/' + total + '...';
-          });
+          }, settings);
         });
       }
 
@@ -516,7 +516,7 @@ function exportToVault(): void {
           ptxtEl.textContent = '\u6B63\u5728\u83B7\u53D6\u539F\u59CB\u6587\u5B57\u8BB0\u5F55...';
           return ExportEngine.fetchMissingTranscripts(notes, function (done: number, total: number) {
             ptxtEl.textContent = '\u6B63\u5728\u83B7\u53D6\u6587\u5B57\u8BB0\u5F55 ' + done + '/' + total + '...';
-          });
+          }, settings);
         });
       }
 
