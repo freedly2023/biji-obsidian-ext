@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Biji to Obsidian",
-  "version": "2.0.0",
+  "version": "1.4.0",
   "description": "Export notes from biji.com (Get笔记) to Markdown for Obsidian, submit links, track feeds",
   "permissions": ["storage", "cookies", "alarms"],
   "host_permissions": [
@@ -10,11 +10,8 @@
     "https://get-notes.luojilab.com/*",
     "https://*.luojilab.com/*",
     "https://*.umiwi.com/*",
-    "https://www.youtube.com/*",
-    "https://www.bilibili.com/*",
-    "https://www.xiaoyuzhoufm.com/*"
+    "<all_urls>"
   ],
-  "optional_host_permissions": ["<all_urls>"],
   "action": {
     "default_popup": "popup.html",
     "default_icon": {
