@@ -8,6 +8,13 @@ import { looksLikeMarkdown, mdToHtml, htmlToMd } from '../core/markdown-converte
 import { exportNote as serverExportNote } from './server-exporter';
 import { fetchAsBase64 } from './image-fetcher';
 
+const PDF_LIGHTWEIGHT = {
+  html2canvasScale: 1.35,
+  html2pdfJpegQuality: 0.82,
+  canvasJpegQuality: 0.82,
+  jsPdfCompress: true,
+} as const;
+
 function looksLikeHtmlFragment(text: string): boolean {
   if (!text) return false;
   if (text.indexOf('<') === -1 || text.indexOf('>') === -1) return false;
@@ -278,7 +285,12 @@ function wrapTextByWidth(
 async function _createA4PdfInstance(): Promise<any> {
   const jsPdfCtor = (window as any).jspdf?.jsPDF || (window as any).jsPDF;
   if (jsPdfCtor) {
-    return new jsPdfCtor({ unit: 'mm', format: 'a4', orientation: 'portrait' });
+    return new jsPdfCtor({
+      unit: 'mm',
+      format: 'a4',
+      orientation: 'portrait',
+      compress: PDF_LIGHTWEIGHT.jsPdfCompress,
+    });
   }
 
   if (typeof html2pdf === 'undefined') {
@@ -288,14 +300,19 @@ async function _createA4PdfInstance(): Promise<any> {
   const seedOpt = {
     margin: [0, 0, 0, 0],
     filename: 'seed.pdf',
-    image: { type: 'jpeg', quality: 0.95 },
+    image: { type: 'jpeg', quality: PDF_LIGHTWEIGHT.html2pdfJpegQuality },
     html2canvas: {
-      scale: 1,
+      scale: PDF_LIGHTWEIGHT.html2canvasScale,
       useCORS: true,
       logging: false,
       backgroundColor: '#ffffff',
     },
-    jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+    jsPDF: {
+      unit: 'mm',
+      format: 'a4',
+      orientation: 'portrait',
+      compress: PDF_LIGHTWEIGHT.jsPdfCompress,
+    },
   };
 
   const seedWorker = (html2pdf() as any)
@@ -477,7 +494,7 @@ async function _generateMergedPdfByCanvas(
     } else if (index === 0 && typeof pdf.setPage === 'function') {
       pdf.setPage(1);
     }
-    const dataUrl = canvas.toDataURL('image/jpeg', 0.92);
+    const dataUrl = canvas.toDataURL('image/jpeg', PDF_LIGHTWEIGHT.canvasJpegQuality);
     pdf.addImage(dataUrl, 'JPEG', 0, 0, pageWidthMm, pageHeightMm);
   });
 
@@ -578,14 +595,19 @@ function _generateLocalPdf(htmlContent: string): Promise<Blob> {
   const opt = {
     margin: [10, 10, 10, 10],
     filename: 'note.pdf',
-    image: { type: 'jpeg', quality: 0.95 },
+    image: { type: 'jpeg', quality: PDF_LIGHTWEIGHT.html2pdfJpegQuality },
     html2canvas: {
-      scale: 2,
+      scale: PDF_LIGHTWEIGHT.html2canvasScale,
       useCORS: true,
       logging: false,
       backgroundColor: '#ffffff',
     },
-    jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+    jsPDF: {
+      unit: 'mm',
+      format: 'a4',
+      orientation: 'portrait',
+      compress: PDF_LIGHTWEIGHT.jsPdfCompress,
+    },
   };
 
   function run(worker: any, sourceLabel: string): Promise<Blob> {
