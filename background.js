@@ -1620,7 +1620,12 @@
         },
         getNotes(_msg, _sender, sendResponse) {
             chrome.storage.local.get('notes', data => {
-                sendResponse({ notes: data.notes || {} });
+                const notes = data.notes || {};
+                const filtered = {};
+                Object.keys(notes).forEach(id => {
+                    if (hasValidTitle(notes[id])) filtered[id] = notes[id];
+                });
+                sendResponse({ notes: filtered });
             });
             return true;
         },
@@ -1629,7 +1634,8 @@
                 const notes = data.notes || {};
                 const arr = Object.values(notes)
                     .map(toNoteMeta)
-                    .filter(Boolean);
+                    .filter(Boolean)
+                    .filter(hasValidTitle);
                 sendResponse({ notes: arr });
             });
             return true;
@@ -1895,8 +1901,14 @@
         }
     });
     // --- Helper functions ---
+    function hasValidTitle(n) {
+        return typeof n.title === 'string' && n.title.trim() !== '';
+    }
     function storeNotes(newNotes) {
         if (!newNotes || !newNotes.length)
+            return;
+        newNotes = newNotes.filter(hasValidTitle);
+        if (!newNotes.length)
             return;
         chrome.storage.local.get('notes', data => {
             const notes = data.notes || {};
@@ -1975,10 +1987,23 @@
             return;
         setupAlarm();
     });
-    // Initialize badge on startup
+    // Initialize badge on startup & clean up untitled notes
     chrome.storage.local.get('notes', data => {
-        const count = data.notes ? Object.keys(data.notes).length : 0;
-        updateBadge(count);
+        const notes = data.notes || {};
+        let dirty = false;
+        Object.keys(notes).forEach(id => {
+            if (!hasValidTitle(notes[id])) {
+                delete notes[id];
+                dirty = true;
+            }
+        });
+        if (dirty) {
+            chrome.storage.local.set({ notes }, () => {
+                updateBadge(Object.keys(notes).length);
+            });
+        } else {
+            updateBadge(Object.keys(notes).length);
+        }
     });
 
 })();

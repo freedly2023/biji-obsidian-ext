@@ -15,6 +15,10 @@
         }));
     }
 
+    function hasValidTitle(n) {
+        return typeof n.title === 'string' && n.title.trim() !== '';
+    }
+
     // Canonical normalizeNote + findNotesArray
     // Previously duplicated in inject.js and background.js
     function normalizeNote(raw) {
@@ -141,7 +145,7 @@
                 url: url + ' [field-discovery]',
                 preview: 'Fields: ' + Object.keys(first).join(', '),
             });
-            const normalized = notes.map(normalizeNote);
+            const normalized = notes.map(normalizeNote).filter(hasValidTitle);
             log('Network interceptor captured', normalized.length, 'notes from', url);
             postToExtension('notes', { url, notes: normalized });
         }
@@ -279,7 +283,7 @@
                 const ssrArr = findNotesArray(window.__INITIAL_STATE__);
                 if (ssrArr) {
                     log('Found notes in __INITIAL_STATE__:', ssrArr.length);
-                    return ssrArr.map(normalizeNote);
+                    return ssrArr.map(normalizeNote).filter(hasValidTitle);
                 }
             }
             // Try multiple app element selectors
@@ -332,7 +336,7 @@
                     const dataArr = findNotesArray(vm.$data);
                     if (dataArr) {
                         log('Found notes in root $data:', dataArr.length);
-                        return dataArr.map(normalizeNote);
+                        return dataArr.map(normalizeNote).filter(hasValidTitle);
                     }
                 }
             }
@@ -360,7 +364,7 @@
                 if (arr[0]) {
                     log('First item keys:', Object.keys(arr[0]));
                 }
-                results = arr.map(normalizeNote);
+                results = arr.map(normalizeNote).filter(hasValidTitle);
             }
             else {
                 log('No notes array found in state tree. Structure:');
