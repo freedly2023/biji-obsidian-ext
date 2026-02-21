@@ -29,12 +29,10 @@
         </div>
         <div class="filter-row">
           <label>类型:</label>
-          <select class="filter-select" id="filterType">
-            <option value="all">全部</option>
-            <option value="voice">语音</option>
-            <option value="text">文字</option>
-            <option value="link">链接</option>
-          </select>
+          <div class="multi-select" id="filterType">
+            <button class="multi-select-trigger" type="button">全部</button>
+            <div class="multi-select-dropdown"></div>
+          </div>
 
           <label>日期:</label>
           <input type="date" class="date-input" id="dateFrom" />

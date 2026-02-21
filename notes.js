@@ -2086,6 +2086,8 @@
     // --- DOM references ---
     const searchInput = document.getElementById('searchInput');
     const filterType = document.getElementById('filterType');
+    const filterTypeTrigger = filterType.querySelector('.multi-select-trigger');
+    const filterTypeDropdown = filterType.querySelector('.multi-select-dropdown');
     const dateFrom = document.getElementById('dateFrom');
     const dateTo = document.getElementById('dateTo');
     const filterExport = document.getElementById('filterExport');
@@ -2115,10 +2117,34 @@
     let activeMethod = 'zip';
     let currentPage = 1;
     const pageSize = 50;
+    const selectedTypes = new Set();
+    // --- Type mappings ---
+    const TYPE_LABEL_MAP = {
+        audio: '音频',
+        local_audio: '本地音频',
+        recorder_audio: '录音',
+        recorder_flash_audio: '闪念录音',
+        meeting: '会议',
+        internal_record: '内部记录',
+        plain_text: '文字',
+        link: '链接',
+        text: '文字',
+    };
+    const TYPE_CSS_MAP = {
+        audio: 'voice',
+        local_audio: 'voice',
+        recorder_audio: 'voice',
+        recorder_flash_audio: 'voice',
+        meeting: 'voice',
+        internal_record: 'text',
+        plain_text: 'text',
+        link: 'link',
+        text: 'text',
+    };
     // --- Filter Engine ---
     const FilterEngine = {
         searchText: '',
-        noteType: 'all',
+        noteTypes: new Set(),
         dateFrom: null,
         dateTo: null,
         exportStatus: 'all',
@@ -2138,9 +2164,9 @@
                 });
             }
             // Type filter
-            if (this.noteType !== 'all') {
-                const nt = this.noteType;
-                result = result.filter(function (n) { return (n.type || 'text') === nt; });
+            if (this.noteTypes.size > 0) {
+                const nts = this.noteTypes;
+                result = result.filter(function (n) { return nts.has(n.type || 'text'); });
             }
             // Date filter
             if (this.dateFrom) {
@@ -2217,8 +2243,8 @@
             const ds = d ? d.substring(0, 10) : '';
             const checked = selectedIds[n.id] ? ' checked' : '';
             const type = n.type || 'text';
-            const typeCls = type === 'voice' ? 'voice' : type === 'link' ? 'link' : type === 'text' ? 'text' : 'other';
-            const typeLabel = type === 'voice' ? '语音' : type === 'link' ? '链接' : type === 'text' ? '文字' : type;
+            const typeCls = TYPE_CSS_MAP[type] || 'other';
+            const typeLabel = TYPE_LABEL_MAP[type] || type;
             const exported = ExportTracker.isExported(n.id);
             const statusHtml = exported
                 ? '<span class="export-status exported">\u2713</span>'
@@ -2288,7 +2314,7 @@
     }
     function applyFilters() {
         FilterEngine.searchText = searchInput.value.trim();
-        FilterEngine.noteType = filterType.value;
+        FilterEngine.noteTypes = selectedTypes;
         FilterEngine.dateFrom = dateFrom.value || null;
         FilterEngine.dateTo = dateTo.value || null;
         FilterEngine.exportStatus = filterExport.value;
@@ -2304,7 +2330,17 @@
             clearTimeout(filterDebounce);
         filterDebounce = setTimeout(applyFilters, 200);
     });
-    filterType.addEventListener('change', applyFilters);
+    // Multi-select: toggle dropdown
+    filterTypeTrigger.addEventListener('click', function (e) {
+        e.stopPropagation();
+        filterType.classList.toggle('open');
+    });
+    // Multi-select: close on outside click
+    document.addEventListener('click', function (e) {
+        if (!filterType.contains(e.target)) {
+            filterType.classList.remove('open');
+        }
+    });
     dateFrom.addEventListener('change', applyFilters);
     dateTo.addEventListener('change', applyFilters);
     filterExport.addEventListener('change', applyFilters);
@@ -2484,11 +2520,61 @@
         });
     }
     // --- Load data ---
+    function updateTriggerText() {
+        if (selectedTypes.size === 0) {
+            filterTypeTrigger.textContent = '全部';
+        } else if (selectedTypes.size <= 2) {
+            filterTypeTrigger.textContent = Array.from(selectedTypes)
+                .map(function (t) { return TYPE_LABEL_MAP[t] || t; })
+                .join(', ');
+        } else {
+            filterTypeTrigger.textContent = '已选' + selectedTypes.size + '项';
+        }
+    }
+    function populateTypeFilter(notes) {
+        // Remember previous selections
+        var prevSelected = new Set(selectedTypes);
+        filterTypeDropdown.innerHTML = '';
+        // Collect unique types preserving TYPE_LABEL_MAP order
+        var seen = {};
+        var availableTypes = [];
+        notes.forEach(function (n) { var t = n.type || 'text'; seen[t] = true; });
+        Object.keys(TYPE_LABEL_MAP).forEach(function (key) {
+            if (seen[key]) availableTypes.push(key);
+        });
+        // Remove stale selections
+        selectedTypes.forEach(function (t) {
+            if (!seen[t]) selectedTypes.delete(t);
+        });
+        // Build checkbox items
+        availableTypes.forEach(function (key) {
+            var label = document.createElement('label');
+            label.className = 'multi-select-item';
+            var cb = document.createElement('input');
+            cb.type = 'checkbox';
+            cb.value = key;
+            if (selectedTypes.has(key)) cb.checked = true;
+            cb.addEventListener('change', function () {
+                if (this.checked) {
+                    selectedTypes.add(key);
+                } else {
+                    selectedTypes.delete(key);
+                }
+                updateTriggerText();
+                applyFilters();
+            });
+            label.appendChild(cb);
+            label.appendChild(document.createTextNode(TYPE_LABEL_MAP[key]));
+            filterTypeDropdown.appendChild(label);
+        });
+        updateTriggerText();
+    }
     function loadNotes() {
         chrome.runtime.sendMessage({ type: 'getNotes' }, function (res) {
             const notes = res && res.notes ? res.notes : {};
             allNotes = Object.values(notes);
             sortNotesByDate(allNotes);
+            populateTypeFilter(allNotes);
             applyFilters();
         });
     }

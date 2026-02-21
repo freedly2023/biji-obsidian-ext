@@ -32,6 +32,39 @@
   font-size: 12px; font-family: inherit; background: #fff;
 }
 .filter-select:focus { outline: none; border-color: #6c5ce7; }
+
+/* Multi-select dropdown */
+.multi-select {
+  position: relative;
+  display: inline-block;
+}
+.multi-select-trigger {
+  padding: 6px 10px; border: 1px solid #ddd; border-radius: 6px;
+  font-size: 12px; font-family: inherit; background: #fff;
+  cursor: pointer; white-space: nowrap;
+  min-width: 60px; text-align: left;
+  padding-right: 22px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23666'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+}
+.multi-select-trigger:focus { outline: none; border-color: #6c5ce7; }
+.multi-select-dropdown {
+  display: none; position: absolute; top: 100%; left: 0;
+  margin-top: 4px; min-width: 140px;
+  background: #fff; border: 1px solid #ddd; border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  z-index: 100; padding: 6px 0;
+  max-height: 240px; overflow-y: auto;
+}
+.multi-select.open .multi-select-dropdown { display: block; }
+.multi-select-item {
+  display: flex; align-items: center; gap: 6px;
+  padding: 6px 12px; cursor: pointer; font-size: 12px;
+  user-select: none;
+}
+.multi-select-item:hover { background: #f5f5f7; }
+.multi-select-item input[type="checkbox"] { width: 14px; height: 14px; margin: 0; }
 .date-input {
   padding: 6px 10px; border: 1px solid #ddd; border-radius: 6px;
   font-size: 12px; font-family: inherit;
