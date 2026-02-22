@@ -102,11 +102,12 @@
 /* Export method toggle */
 .method-group { display: flex; gap: 4px; align-items: center; margin-left: 8px; }
 .method-btn-sm {
-  padding: 4px 10px; border: 1px solid #e9ecef; border-radius: 5px;
+  padding: 4px 10px; border: 2px solid #e9ecef; border-radius: 5px;
   background: #fff; cursor: pointer; font-size: 11px; font-weight: 500;
   color: #666; transition: all 0.2s;
 }
-.method-btn-sm.active { background: #eee; color: #333; font-weight: 600; }
+.method-btn-sm.active { border-color: #6c5ce7; background: #f8f7fd; color: #6c5ce7; font-weight: 600; }
+.method-btn-sm:hover:not(.active) { border-color: #c4bbf0; }
 .method-btn-sm:disabled { opacity: 0.4; cursor: not-allowed; }
 
 .export-row {
