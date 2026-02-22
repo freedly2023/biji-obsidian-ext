@@ -8,6 +8,18 @@
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 }
 
+/* YouTube: inline with title, not on new line */
+.biji-ext-btn-wrap-inline {
+  display: inline-flex !important;
+  margin: 0 0 0 12px !important;
+  vertical-align: middle;
+}
+
+.biji-ext-btn-wrap-inline .biji-ext-btn {
+  padding: 4px 14px;
+  font-size: 13px;
+}
+
 .biji-ext-btn {
   display: inline-flex;
   align-items: center;
@@ -55,6 +67,17 @@
   background: #e74c3c;
 }
 
+/* Small button for list mode (podcast list page) — inline with title */
+.biji-ext-btn-sm {
+  display: inline-flex;
+  vertical-align: middle;
+  padding: 2px 8px;
+  font-size: 11px;
+  font-weight: 500;
+  border-radius: 10px;
+  margin-left: 8px;
+}
+
 /* Spinner animation */
 .biji-ext-spinner {
   display: inline-block;
@@ -64,6 +87,11 @@
   border-top-color: #fff;
   border-radius: 50%;
   animation: biji-ext-spin 0.6s linear infinite;
+}
+
+.biji-ext-btn-sm .biji-ext-spinner {
+  width: 11px;
+  height: 11px;
 }
 
 @keyframes biji-ext-spin {

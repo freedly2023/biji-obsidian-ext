@@ -484,7 +484,7 @@
             return 'youtube';
         if (/bilibili\.com/i.test(url))
             return 'bilibili';
-        if (/xiaoyuzhoufm\.com|podcast|anchor\.fm|podcasts\.apple/i.test(url))
+        if (/xiaoyuzhoufm\.com|xyzfm\.space|podcast|anchor\.fm|podcasts\.apple/i.test(url))
             return 'podcast';
         return 'other';
     }
@@ -503,7 +503,7 @@
             chrome.storage.local.set(obj, resolve);
         });
     }
-    function addFeed(url, name, type, channelName) {
+    function addFeed(url, name, type, channelName, thumbnail) {
         return getFeeds().then(feeds => {
             const exists = feeds.some(f => f.url === url);
             if (exists)
@@ -517,6 +517,7 @@
                 lastChecked: null,
                 type: type || detectFeedType(url),
                 channelName: channelName || name || url,
+                thumbnail: thumbnail || '',
             };
             feeds.push(feed);
             return saveFeeds(feeds).then(() => {
@@ -707,6 +708,24 @@
                                 feed.channelName = channelInfo.title;
                                 feedNameUpdates[feed.id] = channelInfo.title;
                             }
+                            // YouTube avatar fallback: fetch channel page if still no thumbnail
+                            let avatarPromise = Promise.resolve();
+                            if (!feed.thumbnail && feed.type === 'youtube') {
+                                const cidMatch = feed.url.match(/channel_id=([^&]+)/);
+                                if (cidMatch) {
+                                    avatarPromise = fetch('https://www.youtube.com/channel/' + cidMatch[1])
+                                        .then(resp => resp.text())
+                                        .then(html => {
+                                        const avatar = extractYoutubeAvatar(html);
+                                        if (avatar) {
+                                            feed.thumbnail = avatar;
+                                            feedThumbnailUpdates[feed.id] = avatar;
+                                        }
+                                    })
+                                        .catch(() => { });
+                                }
+                            }
+                            avatarPromise.then(() => {
                             feedErrorUpdates[feed.id] = '';
                             parsed.forEach(item => {
                                 const key = item.guid || item.url;
@@ -728,8 +747,12 @@
                                     };
                                     totalNew++;
                                 }
+                                else {
+                                    allItems[key].tags[0] = feed.type || 'other';
+                                }
                             });
                             processFeed(index + 1);
+                            });
                         })
                             .catch(err => {
                             console.warn('[Biji Ext] Feed refresh failed for', feed.url, err.message);
@@ -923,10 +946,22 @@
         });
     }
     // --- YouTube URL conversion ---
+    function extractYoutubeAvatar(html) {
+        const ogMatch = html.match(/<meta\s+property="og:image"\s+content="([^"]+)"/i)
+            || html.match(/<meta\s+content="([^"]+)"\s+property="og:image"/i);
+        if (ogMatch) return ogMatch[1];
+        const linkMatch = html.match(/<link\s+rel="image_src"\s+href="([^"]+)"/i);
+        if (linkMatch) return linkMatch[1];
+        return '';
+    }
     function convertYoutubeUrl(url) {
         const channelMatch = url.match(/youtube\.com\/channel\/(UC[a-zA-Z0-9_-]+)/);
         if (channelMatch) {
-            return Promise.resolve('https://www.youtube.com/feeds/videos.xml?channel_id=' + channelMatch[1]);
+            const rssUrl = 'https://www.youtube.com/feeds/videos.xml?channel_id=' + channelMatch[1];
+            return fetch('https://www.youtube.com/channel/' + channelMatch[1])
+                .then(resp => resp.text())
+                .then(html => ({ rssUrl, avatar: extractYoutubeAvatar(html) }))
+                .catch(() => ({ rssUrl, avatar: '' }));
         }
         const handleMatch = url.match(/youtube\.com\/@([^/?#]+)/);
         if (handleMatch) {
@@ -936,8 +971,12 @@
                 const cidMatch = html.match(/channel_id=([^"&]+)/) ||
                     html.match(/"channelId":"([^"]+)"/) ||
                     html.match(/externalId":"([^"]+)"/);
-                if (cidMatch)
-                    return 'https://www.youtube.com/feeds/videos.xml?channel_id=' + cidMatch[1];
+                if (cidMatch) {
+                    return {
+                        rssUrl: 'https://www.youtube.com/feeds/videos.xml?channel_id=' + cidMatch[1],
+                        avatar: extractYoutubeAvatar(html)
+                    };
+                }
                 throw new Error('无法从页面提取 channel_id');
             });
         }
@@ -1763,7 +1802,7 @@
         },
         addFeed(msg, _sender, sendResponse) {
             ensureHostPermission(msg.url)
-                .then(() => addFeed(msg.url, msg.name))
+                .then(() => addFeed(msg.url, msg.name, undefined, undefined, msg.thumbnail))
                 .then(feed => sendResponse({ ok: true, feed }))
                 .catch(err => sendResponse({ ok: false, error: err.message }));
             return true;
@@ -1854,7 +1893,7 @@
         convertYoutubeUrl(msg, _sender, sendResponse) {
             ensureHostPermission(msg.url)
                 .then(() => convertYoutubeUrl(msg.url))
-                .then(rssUrl => sendResponse({ ok: true, rssUrl }))
+                .then(result => sendResponse({ ok: true, rssUrl: result.rssUrl, avatar: result.avatar }))
                 .catch(err => sendResponse({ ok: false, error: err.message }));
             return true;
         },

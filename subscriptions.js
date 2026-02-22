@@ -283,6 +283,7 @@
     const filterType = document.getElementById('filterType');
     const filterStatus = document.getElementById('filterStatus');
     const filterDate = document.getElementById('filterDate');
+    const sortOrder = document.getElementById('sortOrder');
     const btnRefreshAll = document.getElementById('btnRefreshAll');
     const batchBar = document.getElementById('batchBar');
     const pageSelectAll = document.getElementById('pageSelectAll');
@@ -419,13 +420,13 @@
                 addPromise = new Promise(function (resolve, reject) {
                     chrome.runtime.sendMessage({ type: 'convertYoutubeUrl', url }, function (res) {
                         if (res && res.ok)
-                            resolve(res.rssUrl);
+                            resolve(res);
                         else
                             reject(new Error((res && res.error) || '转换失败'));
                     });
-                }).then(function (rssUrl) {
+                }).then(function (result) {
                     return new Promise(function (resolve, reject) {
-                        chrome.runtime.sendMessage({ type: 'addFeed', url: rssUrl, name }, function (res) {
+                        chrome.runtime.sendMessage({ type: 'addFeed', url: result.rssUrl, name, thumbnail: result.avatar }, function (res) {
                             if (res && res.ok)
                                 resolve(res.feed);
                             else
@@ -565,6 +566,21 @@
             }
             return true;
         });
+        var sort = sortOrder ? sortOrder.value : 'pubDate';
+        if (sort === 'submittedAt') {
+            filteredItems.sort(function (a, b) {
+                if (!a.submittedAt && !b.submittedAt) return 0;
+                if (!a.submittedAt) return 1;
+                if (!b.submittedAt) return -1;
+                return new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime();
+            });
+        } else {
+            filteredItems.sort(function (a, b) {
+                var ta = a.pubDate ? new Date(a.pubDate).getTime() : 0;
+                var tb = b.pubDate ? new Date(b.pubDate).getTime() : 0;
+                return tb - ta;
+            });
+        }
         currentPage = 1;
         renderPage();
     }
@@ -628,6 +644,8 @@
         filterStatus.addEventListener('change', applyFilters);
     if (filterDate)
         filterDate.addEventListener('change', applyFilters);
+    if (sortOrder)
+        sortOrder.addEventListener('change', applyFilters);
     if (btnPrev)
         btnPrev.addEventListener('click', function () {
             if (currentPage > 1) {

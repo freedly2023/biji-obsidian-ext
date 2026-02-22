@@ -23,6 +23,7 @@
                 const el = document.querySelector('#owner #channel-name a, ytd-channel-name a');
                 return el ? el.textContent.trim() : '';
             },
+            inlineBtn: true,
         },
         bilibili: {
             host: 'www.bilibili.com',
@@ -42,26 +43,43 @@
                 return el ? el.textContent.trim() : '';
             },
         },
-        xiaoyuzhou: {
+        xiaoyuzhouEpisode: {
             host: 'www.xiaoyuzhoufm.com',
+            pathPrefix: '/episode/',
             platformType: 'podcast',
-            titleSelectors: ['.episode-title', 'h1'],
+            titleSelectors: ['h1'],
+            inlineBtn: true,
             getPageUrl: () => location.href,
             getPageTitle: () => {
-                const el = document.querySelector('.episode-title, h1');
+                const el = document.querySelector('h1');
                 return el ? el.textContent.trim() : document.title;
             },
             getChannelName: () => {
-                const el = document.querySelector('.podcast-title, .podcast-name a');
+                const el = document.querySelector('a[href*="/podcast/"]');
+                return el ? el.textContent.trim() : '';
+            },
+        },
+        xiaoyuzhouList: {
+            host: 'www.xiaoyuzhoufm.com',
+            pathPrefix: '/podcast/',
+            platformType: 'podcast',
+            listMode: true,
+            getChannelName: () => {
+                const el = document.querySelector('h1');
                 return el ? el.textContent.trim() : '';
             },
         },
     };
     function detectPlatform() {
         const host = location.hostname;
+        const path = location.pathname;
         for (const key in PLATFORMS) {
-            if (host === PLATFORMS[key].host)
-                return PLATFORMS[key];
+            const p = PLATFORMS[key];
+            if (host !== p.host)
+                continue;
+            if (p.pathPrefix && !path.startsWith(p.pathPrefix))
+                continue;
+            return p;
         }
         return null;
     }
@@ -69,6 +87,7 @@
     // content-inject-btn — Injects "Get笔记" button on YouTube, Bilibili, Xiaoyuzhou
     const BTN_ID = 'biji-ext-get-note-btn';
     const WRAP_ID = 'biji-ext-btn-wrap';
+    const LIST_BTN_CLASS = 'biji-ext-list-btn';
     const CHECK_INTERVAL = 2000;
     let lastUrl = location.href;
     function findTitleElement(platform) {
@@ -84,6 +103,8 @@
         if (existing)
             existing.remove();
     }
+
+    // --- Single-page button injection (YouTube, Bilibili, Xiaoyuzhou episode) ---
     function injectButton(platform) {
         chrome.storage.local.get('settings', data => {
             if (chrome.runtime.lastError)
@@ -103,7 +124,7 @@
             if (!titleEl)
                 return;
             const pageUrl = platform.getPageUrl();
-            const wrap = document.createElement('div');
+            const wrap = document.createElement('span');
             wrap.id = WRAP_ID;
             wrap.className = 'biji-ext-btn-wrap';
             const btn = document.createElement('button');
@@ -111,7 +132,15 @@
             btn.className = 'biji-ext-btn';
             btn.textContent = 'Get笔记';
             wrap.appendChild(btn);
-            titleEl.parentNode.insertBefore(wrap, titleEl.nextSibling);
+            // YouTube: inline with title, not on new line
+            if (platform.inlineBtn) {
+                wrap.classList.add('biji-ext-btn-wrap-inline');
+                const h1 = titleEl.querySelector('h1') || titleEl;
+                h1.appendChild(wrap);
+            }
+            else {
+                titleEl.parentNode.insertBefore(wrap, titleEl.nextSibling);
+            }
             // Check if already submitted
             chrome.runtime.sendMessage({ type: 'isLinkSubmitted', url: pageUrl }, resp => {
                 if (chrome.runtime.lastError)
@@ -168,7 +197,128 @@
             });
         });
     }
+
+    // --- List-page button injection (Xiaoyuzhou podcast list) ---
+    function createListBtn(url, title, channelName, platformType) {
+        const btn = document.createElement('button');
+        btn.className = 'biji-ext-btn biji-ext-btn-sm ' + LIST_BTN_CLASS;
+        btn.textContent = 'Get笔记';
+        // Prevent card link navigation
+        btn.addEventListener('click', e => {
+            e.preventDefault();
+            e.stopPropagation();
+            if (btn.classList.contains('biji-ext-loading') ||
+                btn.classList.contains('biji-ext-submitted'))
+                return;
+            const tags = [];
+            if (platformType)
+                tags.push(platformType);
+            if (channelName)
+                tags.push(channelName);
+            btn.classList.add('biji-ext-loading');
+            btn.innerHTML = '<span class="biji-ext-spinner"></span>';
+            chrome.runtime.sendMessage({ type: 'submitLink', url, title, tags }, resp => {
+                if (chrome.runtime.lastError) {
+                    btn.classList.remove('biji-ext-loading');
+                    btn.classList.add('biji-ext-error');
+                    btn.textContent = '失败';
+                    setTimeout(() => {
+                        btn.classList.remove('biji-ext-error');
+                        btn.textContent = 'Get笔记';
+                    }, 3000);
+                    return;
+                }
+                btn.classList.remove('biji-ext-loading');
+                if (resp && resp.ok) {
+                    btn.classList.add('biji-ext-success');
+                    btn.textContent = '已提交 \u2713';
+                    setTimeout(() => {
+                        btn.classList.remove('biji-ext-success');
+                        btn.classList.add('biji-ext-submitted');
+                    }, 2000);
+                }
+                else {
+                    btn.classList.add('biji-ext-error');
+                    btn.textContent = '失败';
+                    setTimeout(() => {
+                        btn.classList.remove('biji-ext-error');
+                        btn.textContent = 'Get笔记';
+                    }, 4000);
+                }
+            });
+        });
+        // Check if already submitted
+        chrome.runtime.sendMessage({ type: 'isLinkSubmitted', url }, resp => {
+            if (chrome.runtime.lastError)
+                return;
+            if (resp && resp.submitted) {
+                btn.textContent = '已提交 \u2713';
+                btn.classList.add('biji-ext-submitted');
+            }
+        });
+        return btn;
+    }
+
+    let listDebounceTimer = null;
+    function injectListButtons(platform) {
+        if (listDebounceTimer)
+            return;
+        listDebounceTimer = setTimeout(() => {
+            listDebounceTimer = null;
+        }, 300);
+        chrome.storage.local.get('settings', data => {
+            if (chrome.runtime.lastError)
+                return;
+            const s = data.settings || {};
+            if (s.enableInjectBtn === false)
+                return;
+            if (s.injectBtnXiaoyuzhou === false)
+                return;
+            const channelName = platform.getChannelName();
+            const links = document.querySelectorAll('a[href*="/episode/"]');
+            links.forEach(a => {
+                // Skip if already processed
+                if (a.querySelector('.' + LIST_BTN_CLASS))
+                    return;
+                const href = a.getAttribute('href');
+                if (!href)
+                    return;
+                const url = new URL(href, location.origin).href;
+                // Find the title element inside the card
+                const titleEl = a.querySelector('h3') || a.querySelector('[class*="title"]:not([class*="podcast"])');
+                if (!titleEl)
+                    return;
+                const title = titleEl.textContent.trim();
+                if (!title)
+                    return;
+                const btn = createListBtn(url, title, channelName, platform.platformType);
+                titleEl.appendChild(btn);
+            });
+        });
+    }
+
+    // --- URL change watching ---
     function watchUrlChanges(platform) {
+        if (platform.listMode) {
+            // For list pages, use MutationObserver to catch lazy-loaded content
+            const observer = new MutationObserver(() => {
+                injectListButtons(platform);
+            });
+            observer.observe(document.body, { childList: true, subtree: true });
+            // Periodic fallback
+            const intervalId = setInterval(() => {
+                if (!chrome.runtime?.id) {
+                    clearInterval(intervalId);
+                    return;
+                }
+                if (location.href !== lastUrl) {
+                    lastUrl = location.href;
+                    setTimeout(() => injectListButtons(platform), 1000);
+                }
+            }, CHECK_INTERVAL);
+            return;
+        }
+        // Single-page mode
         // Method 1: MutationObserver on <title>
         const titleObserver = new MutationObserver(() => {
             if (location.href !== lastUrl) {
@@ -207,22 +357,40 @@
             });
         }
     }
+
     // --- Init ---
     const platform = detectPlatform();
     if (platform) {
-        function tryInject(attempts) {
-            if (attempts <= 0)
-                return;
-            const titleEl = findTitleElement(platform);
-            if (titleEl) {
-                injectButton(platform);
+        if (platform.listMode) {
+            function tryInjectList(attempts) {
+                if (attempts <= 0)
+                    return;
+                const links = document.querySelectorAll('a[href*="/episode/"]');
+                if (links.length > 0) {
+                    injectListButtons(platform);
+                }
+                else {
+                    setTimeout(() => tryInjectList(attempts - 1), 1000);
+                }
             }
-            else {
-                setTimeout(() => tryInject(attempts - 1), 1000);
-            }
+            tryInjectList(10);
+            watchUrlChanges(platform);
         }
-        tryInject(10);
-        watchUrlChanges(platform);
+        else {
+            function tryInject(attempts) {
+                if (attempts <= 0)
+                    return;
+                const titleEl = findTitleElement(platform);
+                if (titleEl) {
+                    injectButton(platform);
+                }
+                else {
+                    setTimeout(() => tryInject(attempts - 1), 1000);
+                }
+            }
+            tryInject(10);
+            watchUrlChanges(platform);
+        }
     }
 
 })();

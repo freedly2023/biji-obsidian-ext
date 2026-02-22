@@ -40,7 +40,8 @@
         "https://www.youtube.com/*",
         "https://www.bilibili.com/video/*",
         "https://www.bilibili.com/bangumi/*",
-        "https://www.xiaoyuzhoufm.com/episode/*"
+        "https://www.xiaoyuzhoufm.com/episode/*",
+        "https://www.xiaoyuzhoufm.com/podcast/*"
       ],
       "js": ["content-inject-btn.js"],
       "css": ["inject-btn.css"],
