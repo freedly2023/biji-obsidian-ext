@@ -2993,6 +2993,26 @@
                 loadSubsTab();
         });
     });
+    // --- Update bar ---
+    function showUpdateBar() {
+        chrome.storage.local.get(['updateInfo', 'dismissedVersion'], function (data) {
+            var info = data.updateInfo;
+            if (!info || !info.version) return;
+            if (data.dismissedVersion === info.version) return;
+            var bar = document.getElementById('updateBar');
+            var text = document.getElementById('updateText');
+            var goBtn = document.getElementById('updateGo');
+            var dismissBtn = document.getElementById('updateDismiss');
+            text.textContent = 'v' + info.version + ' 可用' + (info.changelog ? ' — ' + info.changelog : '');
+            goBtn.href = info.url || '#';
+            bar.style.display = 'flex';
+            dismissBtn.addEventListener('click', function () {
+                chrome.runtime.sendMessage({ type: 'dismissUpdate', version: info.version });
+                bar.style.display = 'none';
+            });
+        });
+    }
+
     // --- Init ---
     loadSettingsLocal(function () {
         initFileFormatToggle();
@@ -3003,5 +3023,6 @@
         updateFormatToggleUI();
         ExportTracker.load(function () { refresh(); });
     });
+    showUpdateBar();
 
 })();

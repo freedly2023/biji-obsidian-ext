@@ -12,7 +12,8 @@
     "https://*.umiwi.com/*",
     "https://www.youtube.com/*",
     "https://www.bilibili.com/*",
-    "https://www.xiaoyuzhoufm.com/*"
+    "https://www.xiaoyuzhoufm.com/*",
+    "https://biji.tonomes.com/*"
   ],
   "optional_host_permissions": ["<all_urls>"],
   "action": {
