@@ -1,0 +1,1 @@
+biji-obsidian中旧YouTube订阅无头像的补救方案：在_fetchAndStoreFeedItems()刷新RSS后，检查feed.thumbnail仍为空且feed.type===youtube时，从feed.url提取channel_id，fetch频道页补取头像。Promise链保持异步不阻塞其他feed处理，fetch失败静默忽略。一旦取到写入storage，后续刷新不再触发。

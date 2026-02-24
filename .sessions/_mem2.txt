@@ -1,0 +1,1 @@
+biji-obsidian扩展中，YouTube @handle路径已有fetch HTML获取channel_id，可零额外请求复用同一HTML提取og:image头像。/channel/UCxxx路径需额外fetch一次频道页。设计convertYoutubeUrl返回{rssUrl, avatar}对象而非字符串，调用方按需使用avatar字段。
