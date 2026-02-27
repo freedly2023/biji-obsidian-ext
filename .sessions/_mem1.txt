@@ -1,1 +1,0 @@
-YouTube RSS feed (Atom格式) 的feed层级不包含 icon 或 logo 标签，无法通过XML解析获取频道头像。解决方案：fetch频道HTML页面，用正则提取 og:image meta标签获取头像URL。需要两种正则覆盖 property/content 属性顺序不同的情况。备选fallback：link rel=image_src。
