@@ -181,4 +181,4 @@ type Feed = {
 
 ## 帮助文档
 
-详细使用步骤与常见问题见 `help.html`
+详细使用步骤与常见问题见 `help.html`，或访问 [在线帮助中心](https://freedly2023.github.io/biji-obsidian-site/help.html)。
