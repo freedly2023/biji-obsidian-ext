@@ -449,8 +449,6 @@
     const FEED_ITEMS_KEY = 'feedItems';
     const FEED_SUBMITTED_KEY = 'feedSubmittedItems';
     const ALARM_NAME = 'biji-feed-check';
-    const VERSION_CHECK_ALARM = 'biji-version-check';
-    const VERSION_CHECK_URL = 'https://biji.tonomes.com/version.json';
     const SUBMIT_DELAY = 1000;
     const MAX_ITEMS = 10000;
     // --- Host permission helpers ---
@@ -1015,41 +1013,6 @@
                 chrome.alarms.clear(ALARM_NAME);
             }
         });
-    }
-    // --- Version check ---
-    function isNewerVersion(remote, local) {
-        const r = String(remote).split('.').map(Number);
-        const l = String(local).split('.').map(Number);
-        for (let i = 0; i < Math.max(r.length, l.length); i++) {
-            const rv = r[i] || 0;
-            const lv = l[i] || 0;
-            if (rv > lv) return true;
-            if (rv < lv) return false;
-        }
-        return false;
-    }
-    function checkForUpdate() {
-        const localVersion = chrome.runtime.getManifest().version;
-        return fetch(VERSION_CHECK_URL, { cache: 'no-cache' })
-            .then(res => { if (!res.ok) throw new Error(res.status); return res.json(); })
-            .then(data => {
-                if (data && data.version && isNewerVersion(data.version, localVersion)) {
-                    const info = {
-                        version: data.version,
-                        url: data.url || VERSION_CHECK_URL,
-                        changelog: data.changelog || '',
-                        checkedAt: Date.now(),
-                    };
-                    chrome.storage.local.set({ updateInfo: info });
-                    return info;
-                }
-                chrome.storage.local.remove('updateInfo');
-                return null;
-            })
-            .catch(err => {
-                console.warn('[Biji Ext] Version check failed:', err.message);
-                return null;
-            });
     }
     // Initialize on load
     setupAlarm();
@@ -1938,15 +1901,6 @@
             getPendingTags().then(tags => sendResponse({ tags }));
             return true;
         },
-        checkUpdate(_msg, _sender, sendResponse) {
-            checkForUpdate().then(info => sendResponse({ ok: true, updateInfo: info }));
-            return true;
-        },
-        dismissUpdate(msg) {
-            if (msg.version) {
-                chrome.storage.local.set({ dismissedVersion: msg.version });
-            }
-        },
     };
     function createMessageListener(ctx) {
         return (msg, sender, sendResponse) => {
@@ -2044,23 +1998,17 @@
     // --- Register listeners ---
     chrome.runtime.onMessage.addListener(createMessageListener(ctx));
     chrome.runtime.onInstalled.addListener((details) => {
-        if (!details) return;
-        // Schedule periodic version check (24h) with 1-min initial delay
-        chrome.alarms.create(VERSION_CHECK_ALARM, { delayInMinutes: 1, periodInMinutes: 1440 });
-        if (details.reason === 'update') {
-            // Just updated — clear stale update info
-            chrome.storage.local.remove('updateInfo');
-        }
-        if (details.reason === 'install') {
-            const url = chrome.runtime.getURL('welcome.html');
-            if (chrome.tabs && chrome.tabs.create) {
-                chrome.tabs.create({ url }, () => {
-                    void chrome.runtime.lastError;
-                });
-            }
+        if (!details || details.reason !== 'install')
+            return;
+        const url = chrome.runtime.getURL('welcome.html');
+        if (chrome.tabs && chrome.tabs.create) {
+            chrome.tabs.create({ url }, () => {
+                // Ignore "No tab with id" class errors in edge cases.
+                void chrome.runtime.lastError;
+            });
         }
     });
-    // Alarm handler
+    // Feed alarm handler
     chrome.alarms.onAlarm.addListener((alarm) => {
         if (alarm.name === ALARM_NAME) {
             if (capturedApiHeaders) {
@@ -2068,9 +2016,6 @@
                     console.warn('[Biji Ext] Scheduled feed check failed:', err.message);
                 });
             }
-        }
-        if (alarm.name === VERSION_CHECK_ALARM) {
-            checkForUpdate();
         }
     });
     // Keep feed alarm in sync when settings are updated from options page.
