@@ -71,8 +71,8 @@ jobs:
           cd site
           VERSION="${{ steps.version.outputs.version }}"
 
-          # 下载链接 (6处)
-          sed -i 's|href="biji-obsidian-v[0-9.]*\.zip"|href="biji-obsidian-v'"$VERSION"'.zip"|g' \
+          # 下载链接 (6处): GitHub URL → 本站根目录 ZIP
+          sed -i 's|href="https://github.com/freedly2023/biji-obsidian-ext/releases/download/v[0-9.]*/biji-obsidian-ext-v[0-9.]*\.zip"|href="biji-obsidian-v'"$VERSION"'.zip"|g' \
             index.html help.html changelog.html
 
           # Footer 版本号 (3处)
