@@ -1585,14 +1585,22 @@
             return typeof docx !== 'undefined';
         });
     }
+    function ensureJSZipLoaded() {
+        return injectScriptOnce('jszip', 'lib/jszip.min.js', function () {
+            return typeof JSZip !== 'undefined';
+        });
+    }
+    function ensureFileSaverLoaded() {
+        return injectScriptOnce('filesaver', 'lib/FileSaver.min.js', function () {
+            return typeof saveAs !== 'undefined';
+        });
+    }
     function ensureExportLibraries(formats) {
-        const tasks = [];
+        const tasks = [ensureJSZipLoaded(), ensureFileSaverLoaded()];
         if (formats.indexOf('pdf') !== -1)
             tasks.push(ensurePdfRuntimeLoaded());
         if (formats.indexOf('docx') !== -1)
             tasks.push(ensureDocxRuntimeLoaded());
-        if (tasks.length === 0)
-            return Promise.resolve();
         return Promise.all(tasks).then(() => { });
     }
 
@@ -2260,19 +2268,6 @@
                 '...还有 ' + (subsItems.length - 30) + ' 条，打开管理页面查看全部</div>';
         }
         subsList.innerHTML = html;
-        // Bind checkboxes
-        subsList.querySelectorAll('.feed-item-check').forEach(function (cb) {
-            cb.addEventListener('change', function () {
-                const guid = this.getAttribute('data-guid');
-                if (this.checked) {
-                    subsSelectedGuids[guid] = true;
-                }
-                else {
-                    delete subsSelectedGuids[guid];
-                }
-                updateSubsSelectionUI();
-            });
-        });
         updateSubsSelectionUI();
     }
     function updateSubsSelectionUI() {
@@ -2691,22 +2686,30 @@
                         '...\u8FD8\u6709 ' + (arr.length - 50) + ' \u6761</div>';
                 }
                 noteListEl.innerHTML = html;
-                noteListEl.querySelectorAll('input[type="checkbox"]').forEach(function (cb) {
-                    cb.addEventListener('change', function () {
-                        const id = this.getAttribute('data-id');
-                        if (this.checked) {
-                            selectedIds[id] = true;
-                        }
-                        else {
-                            delete selectedIds[id];
-                        }
-                        updateSelectionUI();
-                    });
-                });
             }
             updateSelectionUI();
         });
     }
+    // --- Event delegation for noteList checkboxes ---
+    noteListEl.addEventListener('change', function (e) {
+        var cb = e.target;
+        if (cb.tagName !== 'INPUT' || cb.type !== 'checkbox') return;
+        var id = cb.getAttribute('data-id');
+        if (!id) return;
+        if (cb.checked) selectedIds[id] = true;
+        else delete selectedIds[id];
+        updateSelectionUI();
+    });
+    // --- Event delegation for subsList checkboxes ---
+    subsList.addEventListener('change', function (e) {
+        var cb = e.target;
+        if (!cb.classList.contains('feed-item-check')) return;
+        var guid = cb.getAttribute('data-guid');
+        if (!guid) return;
+        if (cb.checked) subsSelectedGuids[guid] = true;
+        else delete subsSelectedGuids[guid];
+        updateSubsSelectionUI();
+    });
     // --- Select all / deselect all ---
     if (selectAllEl) {
         selectAllEl.addEventListener('change', function () {
@@ -2994,14 +2997,19 @@
         });
     });
     // --- Init ---
-    loadSettingsLocal(function () {
+    chrome.storage.local.get(['settings', 'exportedIds', 'lastExportTime'], function (data) {
+        currentSettings = Object.assign({}, DEFAULT_SETTINGS, data.settings || {});
         initFileFormatToggle();
         initFormatToggle();
         if (currentSettings.exportMode === 'vault') {
             activeExportFormat = 'vault';
         }
         updateFormatToggleUI();
-        ExportTracker.load(function () { refresh(); });
+
+        _exportedSet = new Set(data.exportedIds || []);
+        _lastExportTime = data.lastExportTime || null;
+
+        refresh();
     });
 
 })();
