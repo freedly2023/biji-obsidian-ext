@@ -148,10 +148,23 @@
                 if (resp && resp.submitted) {
                     btn.textContent = '已提交 \u2713';
                     btn.classList.add('biji-ext-submitted');
+                } else {
+                    // Check auth status for unsubmitted links
+                    chrome.runtime.sendMessage({ type: 'checkAuth' }, authResp => {
+                        if (chrome.runtime.lastError) return;
+                        if (!authResp || !authResp.authenticated) {
+                            btn.textContent = '请先登录biji';
+                            btn.classList.add('biji-ext-error');
+                        }
+                    });
                 }
             });
             // Click handler
             btn.addEventListener('click', () => {
+                if (btn.classList.contains('biji-ext-error')) {
+                    window.open('https://biji.com', '_blank');
+                    return;
+                }
                 if (btn.classList.contains('biji-ext-loading') ||
                     btn.classList.contains('biji-ext-submitted'))
                     return;
@@ -207,6 +220,10 @@
         btn.addEventListener('click', e => {
             e.preventDefault();
             e.stopPropagation();
+            if (btn.classList.contains('biji-ext-error')) {
+                window.open('https://biji.com', '_blank');
+                return;
+            }
             if (btn.classList.contains('biji-ext-loading') ||
                 btn.classList.contains('biji-ext-submitted'))
                 return;
@@ -254,6 +271,14 @@
             if (resp && resp.submitted) {
                 btn.textContent = '已提交 \u2713';
                 btn.classList.add('biji-ext-submitted');
+            } else {
+                chrome.runtime.sendMessage({ type: 'checkAuth' }, authResp => {
+                    if (chrome.runtime.lastError) return;
+                    if (!authResp || !authResp.authenticated) {
+                        btn.textContent = '请先登录';
+                        btn.classList.add('biji-ext-error');
+                    }
+                });
             }
         });
         return btn;

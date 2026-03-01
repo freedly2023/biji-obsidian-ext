@@ -530,6 +530,22 @@
             reader.readAsText(opmlFile.files[0]);
         });
     }
+    // --- Toast notification ---
+    function showToast(message) {
+        var existing = document.getElementById('biji-toast');
+        if (existing) existing.remove();
+        var toast = document.createElement('div');
+        toast.id = 'biji-toast';
+        toast.textContent = message;
+        toast.style.cssText = 'position:fixed;top:20px;left:50%;transform:translateX(-50%);' +
+            'background:#e74c3c;color:#fff;padding:10px 24px;border-radius:8px;font-size:14px;' +
+            'z-index:99999;box-shadow:0 2px 12px rgba(0,0,0,0.2);transition:opacity 0.3s';
+        document.body.appendChild(toast);
+        setTimeout(function () {
+            toast.style.opacity = '0';
+            setTimeout(function () { toast.remove(); }, 300);
+        }, 3000);
+    }
     // --- Load feed items ---
     function loadItems() {
         chrome.runtime.sendMessage({ type: 'getFeedItems', filter: {} }, function (res) {
@@ -687,7 +703,10 @@
                 btnRefreshAll.disabled = false;
                 btnRefreshAll.textContent = '刷新';
                 if (res && res.ok) {
-                    const msg = '+' + (res.result.newItems || 0);
+                    let msg = '+' + (res.result.newItems || 0);
+                    if (res.result.corrected > 0) {
+                        msg += ' 校正' + res.result.corrected + '条';
+                    }
                     btnRefreshAll.textContent = '刷新 (' + msg + ')';
                     setTimeout(function () { btnRefreshAll.textContent = '刷新'; }, 2000);
                 }
@@ -702,23 +721,35 @@
             if (guids.length === 0)
                 return;
             btnBatchSubmit.disabled = true;
-            btnBatchSubmit.textContent = '正在提交中...';
-            // Immediately mark selected items as 'submitting' in local state
-            const guidSet = {};
-            guids.forEach(function (g) { guidSet[g] = true; });
-            allItems.forEach(function (item) {
-                if (guidSet[item.guid]) {
-                    item.status = 'submitting';
+            btnBatchSubmit.textContent = '检查登录状态...';
+            chrome.runtime.sendMessage({ type: 'checkAuth' }, function (authResp) {
+                if (!authResp || !authResp.authenticated) {
+                    showToast('请先登录 biji.com 后再提交');
+                    btnBatchSubmit.textContent = '提交选中';
+                    btnBatchSubmit.disabled = false;
+                    return;
                 }
-            });
-            // Clear selection before re-render so badge change is visible
-            selectedGuids = {};
-            renderPage();
-            // Wait for background to finish processing, then reload
-            chrome.runtime.sendMessage({ type: 'submitFeedItems', guids }, function () {
-                btnBatchSubmit.textContent = '提交选中';
-                btnBatchSubmit.disabled = false;
-                loadItems();
+                btnBatchSubmit.textContent = '正在提交中...';
+                // Immediately mark selected items as 'submitting' in local state
+                const guidSet = {};
+                guids.forEach(function (g) { guidSet[g] = true; });
+                allItems.forEach(function (item) {
+                    if (guidSet[item.guid]) {
+                        item.status = 'submitting';
+                    }
+                });
+                // Clear selection before re-render so badge change is visible
+                selectedGuids = {};
+                renderPage();
+                // Wait for background to finish processing, then reload
+                chrome.runtime.sendMessage({ type: 'submitFeedItems', guids }, function (resp) {
+                    btnBatchSubmit.textContent = '提交选中';
+                    btnBatchSubmit.disabled = false;
+                    if (resp && !resp.ok) {
+                        showToast('提交失败: ' + (resp.error || '未知错误'));
+                    }
+                    loadItems();
+                });
             });
         });
     }

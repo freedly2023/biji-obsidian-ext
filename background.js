@@ -634,6 +634,33 @@
             });
         });
     }
+    // --- Sync feed item statuses ---
+    function syncFeedItemStatuses() {
+        return new Promise(resolve => {
+            chrome.storage.local.get([FEED_ITEMS_KEY, FEED_SUBMITTED_KEY], data => {
+                const items = data[FEED_ITEMS_KEY] || {};
+                const submitted = data[FEED_SUBMITTED_KEY] || {};
+                let corrected = 0;
+                for (const guid in items) {
+                    const item = items[guid];
+                    if (submitted[guid] && item.status !== 'submitted') {
+                        item.status = 'submitted';
+                        corrected++;
+                    } else if (item.status === 'submitting' && !submitted[guid]) {
+                        item.status = 'new';
+                        corrected++;
+                    }
+                }
+                if (corrected > 0) {
+                    const obj = {};
+                    obj[FEED_ITEMS_KEY] = items;
+                    chrome.storage.local.set(obj, () => resolve({ corrected }));
+                } else {
+                    resolve({ corrected: 0 });
+                }
+            });
+        });
+    }
     // --- Refresh feeds ---
     function refreshFeedItems(feedId) {
         return getFeeds().then(feeds => {
@@ -1790,6 +1817,11 @@
             });
             return true;
         },
+        checkAuth(_msg, _sender, sendResponse, ctx) {
+            const headers = ctx.getHeaders();
+            sendResponse({ authenticated: !!headers });
+            return true;
+        },
         getSubmissionHistory(msg, _sender, sendResponse) {
             getSubmissionHistory(msg.limit).then(history => {
                 sendResponse({ history });
@@ -1843,7 +1875,12 @@
         },
         refreshAllFeedItems(_msg, _sender, sendResponse) {
             refreshAllFeedItems()
-                .then(result => sendResponse({ ok: true, result }))
+                .then(result => {
+                    return syncFeedItemStatuses().then(syncResult => {
+                        result.corrected = syncResult.corrected;
+                        sendResponse({ ok: true, result });
+                    });
+                })
                 .catch(err => sendResponse({ ok: false, error: err.message }));
             return true;
         },
