@@ -162,5 +162,8 @@ jobs:
           rsync -avz --delete \
             -e "ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no" \
             --exclude='.git' \
+            --exclude='.user.ini' \
+            --exclude='.htaccess' \
+            --exclude='404.html' \
             site/ \
             "${{ secrets.SITE_DEPLOY_USER }}@${{ secrets.SITE_DEPLOY_HOST }}:${{ secrets.SITE_DEPLOY_PATH }}"
