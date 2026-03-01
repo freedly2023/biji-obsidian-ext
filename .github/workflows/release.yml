@@ -1,0 +1,163 @@
+name: Release & Deploy Site
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  release-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      # ── Step 1: Checkout 扩展仓库 ──
+      - name: Checkout extension repo
+        uses: actions/checkout@v4
+
+      # ── Step 2: 从 tag 提取版本号 ──
+      - name: Extract version from tag
+        id: version
+        env:
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          VERSION="${TAG#v}"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "Version: $VERSION"
+
+      # ── Step 3: 打包扩展为 ZIP ──
+      - name: Package extension
+        run: |
+          ZIP_NAME="biji-obsidian-v${{ steps.version.outputs.version }}.zip"
+          zip -r "$ZIP_NAME" . \
+            -x ".git/*" \
+            -x ".github/*" \
+            -x ".sessions/*" \
+            -x ".gitignore" \
+            -x "node_modules/*" \
+            -x "CLAUDE.md" \
+            -x "project-ai.md" \
+            -x "PROJECT_SPEC_FOR_AI.md" \
+            -x "*.zip"
+          echo "zip_name=$ZIP_NAME" >> "$GITHUB_ENV"
+          ls -lh "$ZIP_NAME"
+
+      # ── Step 4: 上传 ZIP 到 GitHub Release Assets ──
+      - name: Upload ZIP to Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ env.zip_name }}
+
+      # ── Step 5: Checkout 网站仓库 ──
+      - name: Checkout site repo
+        uses: actions/checkout@v4
+        with:
+          repository: freedly2023/biji-obsidian-site
+          token: ${{ secrets.SITE_REPO_TOKEN }}
+          path: site
+
+      # ── Step 6: 替换旧 ZIP → 新 ZIP ──
+      - name: Replace ZIP in site
+        run: |
+          cd site
+          rm -f biji-obsidian-v*.zip
+          cp "../${{ env.zip_name }}" .
+
+      # ── Step 7: 更新 HTML 中的下载链接和版本号 ──
+      - name: Update version references in HTML
+        run: |
+          cd site
+          VERSION="${{ steps.version.outputs.version }}"
+
+          # 下载链接 (6处)
+          sed -i 's|href="biji-obsidian-v[0-9.]*\.zip"|href="biji-obsidian-v'"$VERSION"'.zip"|g' \
+            index.html help.html changelog.html
+
+          # Footer 版本号 (3处)
+          sed -i 's|GET笔记超级助手 v[0-9.]*|GET笔记超级助手 v'"$VERSION"'|g' \
+            index.html help.html changelog.html
+
+      # ── Step 8: 生成 changelog HTML 并插入 ──
+      - name: Generate and insert changelog
+        env:
+          RELEASE_BODY: ${{ github.event.release.body }}
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+
+          # 写入 release body 到临时文件（通过环境变量安全传入）
+          printf '%s\n' "$RELEASE_BODY" > /tmp/release_body.md
+
+          # 生成当前年月
+          YEAR=$(date +%Y)
+          MONTH=$(date +%-m)
+          DATE_STR="${YEAR} 年 ${MONTH} 月"
+
+          # 用 awk 将 markdown 转换为 changelog HTML
+          awk -v version="$VERSION" -v date_str="$DATE_STR" '
+          BEGIN {
+            print "<!-- v" version " -->"
+            print "<div class=\"changelog-item fade-in\">"
+            print "    <div class=\"changelog-version\">v" version "</div>"
+            print "    <div class=\"changelog-date\">" date_str "</div>"
+            in_list = 0
+          }
+          /^## / {
+            if (in_list) { print "    </ul>"; in_list = 0 }
+            # 提取 ## 后面的内容作为分类标题
+            title = $0
+            sub(/^## */, "", title)
+            print ""
+            print "    <div class=\"changelog-category\">" title "</div>"
+            print "    <ul>"
+            in_list = 1
+            next
+          }
+          /^- / {
+            item = $0
+            sub(/^- */, "", item)
+            print "        <li>" item "</li>"
+            next
+          }
+          END {
+            if (in_list) { print "    </ul>" }
+            print "</div>"
+            print ""
+          }
+          ' /tmp/release_body.md > /tmp/changelog_entry.html
+
+          echo "=== Generated changelog entry ==="
+          cat /tmp/changelog_entry.html
+
+          # 插入到 changelog.html 中第一个 <!-- v 注释之前
+          cd site
+          sed -i '0,/<!-- v[0-9]/{ /<!-- v[0-9]/i\CHANGELOG_PLACEHOLDER
+          }' changelog.html
+
+          # 用 sed 的 r 命令将文件内容替换占位符
+          sed -i '/CHANGELOG_PLACEHOLDER/{
+            r /tmp/changelog_entry.html
+            d
+          }' changelog.html
+
+      # ── Step 9: 提交并推送到网站仓库 ──
+      - name: Commit and push site changes
+        run: |
+          cd site
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "release: v${{ steps.version.outputs.version }} - 更新下载包、版本号和更新日志"
+          git push
+
+      # ── Step 10: 部署到腾讯云服务器 ──
+      - name: Deploy to server via rsync
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SITE_DEPLOY_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H "${{ secrets.SITE_DEPLOY_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null
+
+          rsync -avz --delete \
+            -e "ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no" \
+            --exclude='.git' \
+            site/ \
+            "${{ secrets.SITE_DEPLOY_USER }}@${{ secrets.SITE_DEPLOY_HOST }}:${{ secrets.SITE_DEPLOY_PATH }}"
