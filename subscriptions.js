@@ -755,6 +755,13 @@
     }
     // --- Init ---
     loadFeeds();
-    loadItems();
+    try {
+        chrome.runtime.sendMessage({ type: 'syncFeedItemStatuses' }, function () {
+            void chrome.runtime.lastError;
+            loadItems();
+        });
+    } catch (_) {
+        loadItems();
+    }
 
 })();

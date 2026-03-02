@@ -297,6 +297,7 @@
     // Rewritten from link-submitter.js
     const STORAGE_KEY = 'submittedLinks';
     const MAX_HISTORY = 500;
+    const SSE_IDLE_TIMEOUT_MS = 60000;
     function submitLink(url, title, capturedHeaders) {
         if (!capturedHeaders) {
             return Promise.reject(new Error('未捕获到认证信息，请先在 biji.com 页面上浏览'));
@@ -310,18 +311,33 @@
             prompt_template_id: '',
             source: 'web',
         });
-        return fetch(SUBMIT_API_URL, { method: 'POST', headers, body }).then(resp => {
+        const controller = new AbortController();
+        let idleTimer = null;
+        function resetIdleTimer() {
+            if (idleTimer) clearTimeout(idleTimer);
+            idleTimer = setTimeout(() => controller.abort(), SSE_IDLE_TIMEOUT_MS);
+        }
+        resetIdleTimer();
+        return fetch(SUBMIT_API_URL, { method: 'POST', headers, body, signal: controller.signal }).then(resp => {
             if (!resp.ok) {
+                clearTimeout(idleTimer);
                 return resp.text().then(text => {
                     throw new Error('HTTP ' + resp.status + ': ' + text.substring(0, 200));
                 });
             }
-            return _readSSEResponse(resp).then(result => {
+            return _readSSEResponse(resp, resetIdleTimer).then(result => {
+                clearTimeout(idleTimer);
                 return _recordSubmission(url, title, result).then(() => result);
             });
+        }).catch(err => {
+            clearTimeout(idleTimer);
+            if (err.name === 'AbortError') {
+                throw new Error('SSE 流空闲超时（' + (SSE_IDLE_TIMEOUT_MS / 1000) + '秒无数据）');
+            }
+            throw err;
         });
     }
-    function _readSSEResponse(response) {
+    function _readSSEResponse(response, resetIdleTimer) {
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
         let noteId = '';
@@ -331,6 +347,7 @@
             return reader.read().then(result => {
                 if (result.done)
                     return { noteId, linkTitle };
+                if (resetIdleTimer) resetIdleTimer();
                 buffer += decoder.decode(result.value, { stream: true });
                 const lines = buffer.split('\n');
                 buffer = lines.pop() || '';
@@ -635,20 +652,27 @@
         });
     }
     // --- Sync feed item statuses ---
+    const SUBMITTING_STALE_MS = 3 * 60 * 1000;
     function syncFeedItemStatuses() {
         return new Promise(resolve => {
             chrome.storage.local.get([FEED_ITEMS_KEY, FEED_SUBMITTED_KEY], data => {
                 const items = data[FEED_ITEMS_KEY] || {};
                 const submitted = data[FEED_SUBMITTED_KEY] || {};
+                const now = Date.now();
                 let corrected = 0;
                 for (const guid in items) {
                     const item = items[guid];
                     if (submitted[guid] && item.status !== 'submitted') {
                         item.status = 'submitted';
+                        delete item.submittingStartedAt;
                         corrected++;
                     } else if (item.status === 'submitting' && !submitted[guid]) {
-                        item.status = 'new';
-                        corrected++;
+                        const elapsed = now - (item.submittingStartedAt || 0);
+                        if (!item.submittingStartedAt || elapsed > SUBMITTING_STALE_MS) {
+                            item.status = 'new';
+                            delete item.submittingStartedAt;
+                            corrected++;
+                        }
                     }
                 }
                 if (corrected > 0) {
@@ -806,6 +830,7 @@
                     const guid = item.guid || item.url;
                     prevStatusByGuid[guid] = item.status || 'new';
                     item.status = 'submitting';
+                    item.submittingStartedAt = Date.now();
                 });
                 saveFeedItems(allItems).then(() => {
                     const promises = toSubmit.map((item, idx) => {
@@ -815,17 +840,21 @@
                                 .then(result => {
                                 item.status = 'submitted';
                                 item.submittedAt = new Date().toISOString();
+                                delete item.submittingStartedAt;
                                 item.noteId = (result && result.noteId) || null;
                                 markItemSubmitted(item.guid || item.url);
                                 if (item.noteId && item.tags && item.tags.length > 0) {
                                     storePendingTags(item.noteId, item.tags);
                                 }
+                                saveFeedItems(allItems);
                                 return { guid: item.guid, noteId: item.noteId, error: null };
                             })
                                 .catch(err => {
                                 const guid = item.guid || item.url;
                                 const prev = prevStatusByGuid[guid];
                                 item.status = prev && prev !== 'submitting' ? prev : 'new';
+                                delete item.submittingStartedAt;
+                                saveFeedItems(allItems);
                                 return { guid: item.guid, noteId: null, error: err.message };
                             });
                         });
@@ -1860,6 +1889,12 @@
         },
         getFeedItems(msg, _sender, sendResponse) {
             getFeedItems(msg.filter).then(items => sendResponse({ items }));
+            return true;
+        },
+        syncFeedItemStatuses(_msg, _sender, sendResponse) {
+            syncFeedItemStatuses()
+                .then(result => sendResponse({ ok: true, corrected: result.corrected }))
+                .catch(err => sendResponse({ ok: false, error: err.message }));
             return true;
         },
         submitFeedItems(msg, _sender, sendResponse, ctx) {
