@@ -304,15 +304,28 @@
         md = md.replace(/\n{3,}/g, '\n\n');
         return md.trim();
     }
-    function formatImage(img, index, settings) {
+    function isImageUrl(url) {
+        try {
+            var pathname = new URL(url).pathname.toLowerCase();
+            return /\.(jpe?g|png|gif|webp|svg|bmp|ico|tiff?|avif|heic)$/.test(pathname);
+        } catch (_) {
+            var lower = url.toLowerCase().split('?')[0].split('#')[0];
+            return /\.(jpe?g|png|gif|webp|svg|bmp|ico|tiff?|avif|heic)$/.test(lower);
+        }
+    }
+    function formatImage(img, index, settings, noteTitle) {
         const url = typeof img === 'string' ? img : (img.url || img.src || '');
         if (!url)
             return '';
-        if (settings && settings.imageFormat === 'obsidian') {
-            const fname = url.split('/').pop().split('?')[0] || 'image-' + (index + 1) + '.png';
-            return '![[' + fname + ']]';
+        if (isImageUrl(url)) {
+            if (settings && settings.imageFormat === 'obsidian') {
+                const fname = url.split('/').pop().split('?')[0] || 'image-' + (index + 1) + '.png';
+                return '![[' + fname + ']]';
+            }
+            return '![图片 ' + (index + 1) + '](' + url + ')';
         }
-        return '![图片 ' + (index + 1) + '](' + url + ')';
+        var linkText = noteTitle || '链接 ' + (index + 1);
+        return '[' + linkText + '](' + url + ')';
     }
     function convert(note, settings) {
         const parts = [frontmatter(note, settings), ''];
@@ -335,12 +348,18 @@
             parts.push('', '---', '**录音**: [收听](' + note.audioUrl + ')');
         }
         if (note.images && note.images.length > 0 && (!settings || settings.includeImages !== false)) {
-            parts.push('', '---', '## 图片', '');
+            parts.push('', '---', '## 附件', '');
             note.images.forEach((img, i) => {
-                const line = formatImage(img, i, settings);
+                const line = formatImage(img, i, settings, note.title);
                 if (line)
                     parts.push(line);
             });
+        }
+        if (note.id) {
+            if (!note.images || note.images.length === 0 || (settings && settings.includeImages === false)) {
+                parts.push('', '---', '## 附件', '');
+            }
+            parts.push('[Get笔记](https://www.biji.com/note/' + note.id + ')');
         }
         return parts.join('\n');
     }
@@ -1136,22 +1155,32 @@
         return html;
     }
     function _prepareImagesHtml(note, settings) {
-        if (!note.images || note.images.length === 0 || settings.includeImages === false) {
+        var hasImages = note.images && note.images.length > 0 && settings.includeImages !== false;
+        if (!hasImages && !note.id) {
             return Promise.resolve('');
         }
-        const urls = note.images
+        const urls = hasImages ? note.images
             .map(img => typeof img === 'string' ? img : img.url || img.src || '')
-            .filter(Boolean);
-        if (urls.length === 0)
+            .filter(Boolean) : [];
+        if (urls.length === 0 && !note.id)
             return Promise.resolve('');
-        return Promise.all(urls.map(url => fetchAsBase64(url).catch(() => null))).then(base64Results => {
+        const imageUrls = urls.filter(u => isImageUrl(u));
+        const linkUrls = urls.filter(u => !isImageUrl(u));
+        return Promise.all(imageUrls.map(url => fetchAsBase64(url).catch(() => null))).then(base64Results => {
             let html = '<hr style="margin: 20px 0; border: none; border-top: 1px solid #ddd;">';
-            html += '<h2 style="font-size: 16px; margin-bottom: 12px;">图片</h2>';
+            html += '<h2 style="font-size: 16px; margin-bottom: 12px;">附件</h2>';
             base64Results.forEach(b64 => {
                 if (b64) {
                     html += '<img src="' + b64 + '" style="max-width: 100%; margin: 8px 0; border-radius: 4px;">';
                 }
             });
+            var linkText = note.title || '原始出处';
+            linkUrls.forEach(url => {
+                html += '<p style="margin: 4px 0;"><a href="' + url + '" style="color: #1a73e8;">' + linkText + '</a></p>';
+            });
+            if (note.id) {
+                html += '<p style="margin: 4px 0;"><a href="https://www.biji.com/note/' + note.id + '" style="color: #1a73e8;">Get笔记</a></p>';
+            }
             return html;
         });
     }

@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "GET笔记超级助手",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "订阅更新、视频播客一键提交转录、批量下载导出，支持 Obsidian",
   "permissions": ["storage", "cookies", "alarms"],
   "host_permissions": [
